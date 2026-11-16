@@ -107,11 +107,16 @@ export default async function Dashboard() {
         )}
 
         <section className={`card ${debts.length > 0 ? "lg:col-span-2" : "lg:col-span-5"}`} aria-labelledby="upcoming-title">
-          <h2 id="upcoming-title" className="display text-2xl">
-            Próximos pagos
-          </h2>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="upcoming-title" className="display text-2xl">
+              Próximos pagos
+            </h2>
+            <Link href="/pagos" className="text-sm underline underline-offset-4">
+              Lista del mes
+            </Link>
+          </div>
           {upcoming.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-3">Agrega el día de pago a tus tarjetas y créditos, o registra tus recibos, para verlos aquí.</p>
+            <p className="mt-2 text-sm text-ink-3">Agrega el día de pago a tus tarjetas y créditos, o registra tus pagos fijos, para verlos aquí.</p>
           ) : (
             <ol className="mt-3 flex flex-col gap-3">
               {upcoming.map((item) => (

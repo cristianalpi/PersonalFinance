@@ -244,6 +244,8 @@ export interface Bill {
   amount: number | null;
   due_day: number;
   category: string | null;
+  /** When the bill was registered (ISO timestamp); months before it do not list the bill. */
+  created_at?: string;
 }
 
 export interface BillStatus {
@@ -269,3 +271,85 @@ export function relativeDay(days: number): string {
   if (days === -1) return "venció ayer";
   return days > 0 ? `en ${days} días` : `venció hace ${-days} días`;
 }
+
+export interface ChecklistItem {
+  type: "bill" | "debt";
+  id: string;
+  name: string;
+  /** Due date inside the month, or null for a debt with no payment day. */
+  due: string | null;
+  /** What is expected this month; null when it varies (utilities, card payments). */
+  expected: number | null;
+  paid: boolean;
+  paidAmount: number;
+  overdue: boolean;
+  /** Enough to record the payment in one tap; null when the amount or the account must be asked. */
+  quick: { amount: number; accountId: string | null } | null;
+}
+
+/**
+ * The month's obligatory payments: every fixed bill, plus every card and loan
+ * that owes something. Nothing is stored per month: an item is ticked when a
+ * movement dated in that month pays it, so each new month starts unticked.
+ */
+export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], month: string, today: string): ChecklistItem[] {
+  const first = `${month}-01`;
+  const last = monthEnd(month);
+  const inMonth = (t: Tx) => t.occurred_on >= first && t.occurred_on <= last;
+  const dueIn = (day: number) => dueDates(day, first, 1)[0];
+  const spendable = accounts.filter((a) => a.kind !== "loan");
+  const items: ChecklistItem[] = [];
+
+  for (const bill of bills) {
+    if (bill.created_at && bill.created_at.slice(0, 7) > month) continue;
+    const payments = txs.filter((t) => t.bill_id === bill.id && inMonth(t));
+    const due = dueIn(bill.due_day);
+    const lastUsed = txs.find((t) => t.bill_id === bill.id)?.account_id; // txs come newest first
+    const accountId = accounts.some((a) => a.id === lastUsed) ? lastUsed! : spendable.length === 1 ? spendable[0].id : null;
+    items.push({
+      type: "bill",
+      id: bill.id,
+      name: bill.name,
+      due,
+      expected: bill.amount,
+      paid: payments.length > 0,
+      paidAmount: payments.reduce((sum, t) => sum + t.amount, 0),
+      overdue: payments.length === 0 && due < today,
+      quick: bill.amount && accountId ? { amount: bill.amount, accountId } : null,
+    });
+  }
+
+  for (const account of accounts) {
+    if (!isDebt(account) || account.opening_date > last) continue;
+    const payments = txs.filter((t) => t.kind === "payment" && t.account_id === account.id && inMonth(t));
+    const owedAtStart = balanceAt(account, txs, addDays(first, -1));
+    const owedNow = balanceAt(account, txs, last);
+    if (payments.length === 0 && Math.max(owedAtStart, owedNow) <= 0) continue;
+    const due = account.due_day ? dueIn(account.due_day) : null;
+    const lastSource = txs.find((t) => t.kind === "payment" && t.account_id === account.id)?.source_account_id ?? null;
+    const instalment = account.kind === "loan" && account.monthly_payment ? Math.min(account.monthly_payment, Math.max(owedNow, 0)) : null;
+    items.push({
+      type: "debt",
+      id: account.id,
+      name: account.name,
+      due,
+      expected: instalment,
+      paid: payments.length > 0,
+      paidAmount: payments.reduce((sum, t) => sum + t.amount, 0),
+      overdue: payments.length === 0 && due !== null && due < today,
+      quick: instalment ? { amount: instalment, accountId: accounts.some((a) => a.id === lastSource) ? lastSource : null } : null,
+    });
+  }
+
+  // Pending first, by due date; what is already paid sinks to the bottom.
+  return items.sort((a, b) => Number(a.paid) - Number(b.paid) || (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name));
+}
+
+/** 'YYYY-MM' shifted by a number of months. */
+export function shiftMonth(month: string, by: number): string {
+  const total = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + by;
+  return `${Math.floor(total / 12)}-${pad((total % 12) + 1)}`;
+}
+
+const MONTH_FULL = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+export const monthName = (month: string) => MONTH_FULL[Number(month.slice(5, 7)) - 1];

@@ -1,14 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import { payBill, saveBill, type FormState } from "@/app/actions";
-import type { Bill } from "@/lib/finance";
+import { saveBill, type FormState } from "@/app/actions";
 
 export function BillForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBill, {});
   return (
     <form action={action} className="card flex flex-col gap-4">
-      <h2 className="display text-2xl">Nuevo gasto fijo</h2>
+      <h2 className="display text-2xl">Nuevo pago fijo</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <label className="field">
           Nombre
@@ -33,39 +32,5 @@ export function BillForm() {
         {pending ? "Guardando…" : "Guardar"}
       </button>
     </form>
-  );
-}
-
-export function PayBill({ bill, accounts, today }: { bill: Bill; accounts: { id: string; name: string }[]; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(payBill, {});
-  return (
-    <details className="w-full text-sm">
-      <summary className="btn-quiet inline-flex cursor-pointer list-none">Marcar pagado</summary>
-      <form action={action} className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-        <input type="hidden" name="bill_id" value={bill.id} />
-        <label className="field">
-          Cuánto pagaste
-          <input className="input num" name="amount" inputMode="numeric" defaultValue={bill.amount ?? ""} required />
-        </label>
-        <label className="field">
-          Con qué
-          <select className="input" name="account_id" required>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          Fecha
-          <input className="input" type="date" name="occurred_on" defaultValue={today} max={today} required />
-        </label>
-        <button className="btn" disabled={pending}>
-          Registrar pago
-        </button>
-      </form>
-      {state.error && <p role="alert" className="alert mt-2">{state.error}</p>}
-    </details>
   );
 }

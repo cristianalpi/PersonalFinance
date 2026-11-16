@@ -56,7 +56,7 @@ export function advise(accounts: Account[], txs: Tx[], today: string, bills: Bil
       id: `bill-${bill.id}`,
       level: "urgent",
       title: status.days < 0 ? `${bill.name} ${relativeDay(status.days)}` : `${bill.name} vence ${relativeDay(status.days)}`,
-      detail: `${bill.amount ? `Valor: ${formatCOP(bill.amount)}. ` : ""}Márcalo como pagado en Recibos cuando lo pagues.`,
+      detail: `${bill.amount ? `Valor: ${formatCOP(bill.amount)}. ` : ""}Márcalo en Pagos cuando lo pagues.`,
     });
   }
   const debts = accounts.filter(isDebt).map((account) => ({ account, balance: balanceAt(account, txs) })).filter((d) => d.balance > 0);

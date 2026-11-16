@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   balanceAt,
   billStatus,
+  monthlyChecklist,
   monthlySeries,
+  shiftMonth,
   nextDueDate,
   dueDates,
   parsePesos,
@@ -139,4 +141,57 @@ test("billStatus: unpaid shows this month's date (even overdue); paid moves to n
   assert.deepEqual(billStatus(bill, paid, "2026-11-15"), { date: "2026-12-10", paidThisMonth: true, days: 25 });
   const lastMonth = [tx({ account_id: "a", kind: "expense", amount: 90_000, occurred_on: "2026-10-31", bill_id: "b" })];
   assert.equal(billStatus(bill, lastMonth, "2026-11-15").paidThisMonth, false);
+});
+
+test("monthlyChecklist: bills and debts for the month, pending first, renewed each month", () => {
+  const bills = [
+    { id: "net", name: "Internet", amount: 90_000, due_day: 5, category: null },
+    { id: "luz", name: "Luz", amount: null, due_day: 12, category: null },
+  ];
+  const loan: Account = { ...credito, due_day: 28, monthly_payment: 500_000 };
+  const card: Account = { ...tarjeta, due_day: 20 };
+  const all = [ahorros, card, loan];
+  const pay = [
+    tx({ account_id: "a", kind: "expense", amount: 90_000, occurred_on: "2026-11-04", bill_id: "net" }),
+    ...txs,
+  ].sort((x, y) => y.occurred_on.localeCompare(x.occurred_on));
+
+  const nov = monthlyChecklist(all, bills, pay, "2026-11", "2026-11-15");
+  assert.deepEqual(nov.map((i) => [i.name, i.paid, i.overdue]), [
+    ["Luz", false, true],
+    ["Visa", false, false],
+    ["Internet", true, false],
+    ["Libre inversión", true, false],
+  ]);
+  const byName = Object.fromEntries(nov.map((i) => [i.name, i]));
+  assert.equal(byName.Internet.paidAmount, 90_000);
+  assert.equal(byName.Luz.quick, null, "variable amount has to be asked");
+  assert.equal(byName.Visa.quick, null, "a card payment has no fixed amount");
+  assert.equal(byName.Visa.due, "2026-11-20");
+
+  const dec = monthlyChecklist(all, bills, pay, "2026-12", "2026-12-01");
+  assert.ok(dec.every((i) => !i.paid), "a new month starts with nothing ticked");
+  const internet = dec.find((i) => i.name === "Internet")!;
+  assert.deepEqual(internet.quick, { amount: 90_000, accountId: "a" }, "one tap: fixed amount, same account as last time");
+  const libre = dec.find((i) => i.name === "Libre inversión")!;
+  assert.deepEqual(libre.quick, { amount: 500_000, accountId: null }, "the loan's last payment named no source account");
+
+  const sep = monthlyChecklist(all, bills, pay, "2026-09", "2026-11-15");
+  assert.ok(!sep.some((i) => i.name === "Libre inversión"), "the loan did not exist in September");
+});
+
+test("monthlyChecklist leaves out a debt that owes nothing", () => {
+  const paidOff: Account = { ...tarjeta, opening_balance: 0 };
+  assert.deepEqual(monthlyChecklist([paidOff], [], [], "2026-11", "2026-11-15"), []);
+});
+
+test("shiftMonth crosses years", () => {
+  assert.equal(shiftMonth("2026-01", -1), "2025-12");
+  assert.equal(shiftMonth("2026-12", 1), "2027-01");
+});
+
+test("monthlyChecklist does not list a bill in months before it was registered", () => {
+  const bill = { id: "gym", name: "Gimnasio", amount: 80_000, due_day: 3, category: null, created_at: "2026-11-15T20:00:00Z" };
+  assert.equal(monthlyChecklist([], [bill], [], "2026-10", "2026-11-15").length, 0);
+  assert.equal(monthlyChecklist([], [bill], [], "2026-11", "2026-11-15").length, 1);
 });

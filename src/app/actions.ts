@@ -169,33 +169,6 @@ export async function deleteBill(form: FormData) {
   revalidatePath("/", "layout");
 }
 
-/** Records this month's payment of a fixed bill as an expense on the chosen account. */
-export async function payBill(_prev: FormState, form: FormData): Promise<FormState> {
-  const supabase = await signedIn();
-  const amount = parsePesos(text(form, "amount"));
-  if (!amount) return { error: "Escribe cuánto pagaste." };
-  const account_id = text(form, "account_id");
-  if (!account_id) return { error: "Elige con qué pagaste." };
-  const occurred_on = text(form, "occurred_on");
-  if (!DATE.test(occurred_on)) return { error: "La fecha no es válida." };
-
-  const { data: bill } = await supabase.from("bills").select("id, name, category").eq("id", text(form, "bill_id")).maybeSingle();
-  if (!bill) return { error: "Ese recibo ya no existe." };
-
-  const { error } = await supabase.from("transactions").insert({
-    kind: "expense",
-    account_id,
-    amount,
-    occurred_on,
-    bill_id: bill.id,
-    category: bill.category ?? "Recibos",
-    description: bill.name,
-  });
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-  revalidatePath("/", "layout");
-  return { message: "Pago registrado." };
-}
-
 /** Creates (or replaces) the user's token of one kind and returns it once. */
 export async function createToken(_prev: FormState, form: FormData): Promise<FormState> {
   const supabase = await signedIn();
@@ -258,5 +231,63 @@ export async function discardInbox(form: FormData) {
   const supabase = await signedIn();
   const { error } = await supabase.from("wallet_inbox").delete().eq("id", text(form, "id"));
   if (error) throw new Error(`No se pudo descartar: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Ticks one item of the monthly checklist by recording its payment: an
+ * expense for a fixed bill, or a debt payment for a card or loan.
+ */
+export async function markPaid(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe cuánto pagaste." };
+  const occurred_on = text(form, "occurred_on");
+  if (!DATE.test(occurred_on)) return { error: "La fecha no es válida." };
+  const id = text(form, "id");
+  const account_id = text(form, "account_id") || null;
+
+  if (form.get("type") === "bill") {
+    if (!account_id) return { error: "Elige con qué pagaste." };
+    const { data: bill } = await supabase.from("bills").select("id, name, category").eq("id", id).maybeSingle();
+    if (!bill) return { error: "Ese pago fijo ya no existe." };
+    const { error } = await supabase.from("transactions").insert({
+      kind: "expense",
+      account_id,
+      amount,
+      occurred_on,
+      bill_id: bill.id,
+      category: bill.category ?? "Recibos",
+      description: bill.name,
+    });
+    if (error) return { error: `No se pudo guardar: ${error.message}` };
+  } else {
+    const { data: debt } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
+    if (!debt || debt.kind === "savings") return { error: "Esa deuda ya no existe." };
+    if (account_id) {
+      const { data: source } = await supabase.from("accounts").select("kind").eq("id", account_id).maybeSingle();
+      if (source?.kind !== "savings") return { error: "El pago debe salir de una cuenta de ahorros." };
+    }
+    const { error } = await supabase
+      .from("transactions")
+      .insert({ kind: "payment", account_id: id, source_account_id: account_id, amount, occurred_on });
+    if (error) return { error: `No se pudo guardar: ${error.message}` };
+  }
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** Unticks an item by deleting the payments that ticked it in that month. */
+export async function unmarkPaid(form: FormData) {
+  const supabase = await signedIn();
+  const month = text(form, "month");
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Mes no válido.");
+  const [year, m] = month.split("-").map(Number);
+  const last = `${month}-${String(new Date(Date.UTC(year, m, 0)).getUTCDate()).padStart(2, "0")}`;
+  const id = text(form, "id");
+
+  const query = supabase.from("transactions").delete().gte("occurred_on", `${month}-01`).lte("occurred_on", last);
+  const { error } = form.get("type") === "bill" ? await query.eq("bill_id", id) : await query.eq("account_id", id).eq("kind", "payment");
+  if (error) throw new Error(`No se pudo deshacer: ${error.message}`);
   revalidatePath("/", "layout");
 }

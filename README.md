@@ -60,7 +60,7 @@ Los pasos para armar el Atajo están en la pantalla de Ajustes.
 
 ## Recibos y recordatorios
 
-- **Recibos**: gastos fijos con día de pago (valor fijo o variable). «Marcar pagado» crea el gasto del mes.
+- **Pagos**: lista mensual de pagos obligatorios (pagos fijos, tarjetas y créditos con deuda). Marcar uno registra el pago; no se guarda nada por mes, así que la lista se renueva sola el día 1 y los meses anteriores quedan como historial.
 - **Calendario**: `GET /api/calendar/<token>.ics` entrega las fechas de pago de tarjetas, créditos y recibos de los próximos tres meses, con alertas dos días antes y el mismo día. Se suscribe desde el calendario del teléfono; así llegan los avisos sin app propia.
 - **Recomendaciones** (`src/lib/advice.ts`): reglas sobre tus datos, recalculadas en cada carga: vencimientos cercanos sin pago, recibos vencidos, cupo alto, cuotas que los ahorros no cubren, categorías por encima de lo normal, cuánto falta para terminar un crédito y a qué deuda abonar primero.
 
