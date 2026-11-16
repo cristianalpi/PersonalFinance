@@ -73,8 +73,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
               )}
             </p>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={`${done} de ${items.length} pagados`}>
-            <div className="h-full rounded-full bg-savings transition-[width] duration-700" style={{ width: `${(done / items.length) * 100}%` }} />
+          <div className="track mt-3 h-3" role="img" aria-label={`${done} de ${items.length} pagados`}>
+            <div className="fill fill-have" style={{ width: `${(done / items.length) * 100}%` }} />
           </div>
           <ul className="mt-3 divide-y divide-line">
             {items.map((item) => (

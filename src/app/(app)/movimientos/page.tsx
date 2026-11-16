@@ -22,9 +22,9 @@ export default async function TransactionsPage() {
   const month = today.slice(0, 7);
   const sum = (kind: string) => txs.filter((t) => t.kind === kind && t.occurred_on.startsWith(month)).reduce((s, t) => s + t.amount, 0);
   const flows = [
-    { label: "Ingresos", amount: sum("income"), bar: "bg-savings" },
-    { label: "Gastos", amount: sum("expense"), bar: "bg-debt" },
-    { label: "Pagos a deuda", amount: sum("payment"), bar: "bg-ink-2" },
+    { label: "Ingresos", amount: sum("income"), bar: "fill-have" },
+    { label: "Gastos", amount: sum("expense"), bar: "fill-owe" },
+    { label: "Pagos a deuda", amount: sum("payment"), bar: "fill-brand" },
   ];
   const largest = Math.max(1, ...flows.map((f) => f.amount));
   const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
@@ -47,8 +47,8 @@ export default async function TransactionsPage() {
                 <p className="text-sm text-ink-2">{flow.label}</p>
                 <p className="display text-2xl">{formatCOP(flow.amount)}</p>
               </div>
-              <div className="mt-2 h-1.5 rounded-full bg-line">
-                <div className={`h-full rounded-full ${flow.bar} transition-[width] duration-700`} style={{ width: `${(flow.amount / largest) * 100}%` }} />
+              <div className="track mt-2 h-2.5">
+                <div className={`fill ${flow.bar}`} style={{ width: `${(flow.amount / largest) * 100}%` }} />
               </div>
             </div>
           ))}

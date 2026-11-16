@@ -27,15 +27,16 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
         ? `No se registró pago (vencía el ${formatDate(item.due)})`
         : `${formatDate(item.due)}, ${relativeDay(days!)}`;
 
-  const box = `flex size-11 shrink-0 items-center justify-center rounded-full border-2 text-lg transition-colors ${
-    item.paid ? "border-savings bg-savings text-surface" : item.overdue ? "border-ink text-ink" : "border-line text-transparent hover:border-ink-3"
+  const paidFill = { background: "linear-gradient(135deg, var(--savings), var(--savings-2))" };
+  const box = `flex size-11 shrink-0 items-center justify-center rounded-full border-2 text-lg font-semibold transition-colors ${
+    item.paid ? "border-transparent text-white" : item.overdue ? "border-debt text-debt" : "border-line text-transparent hover:border-brand"
   }`;
 
   return (
     <li className="py-3">
       <div className="flex items-center gap-3">
         {!editable ? (
-          <span className={box} role="img" aria-label={item.paid ? "Pagado" : "Sin pagar"}>
+          <span className={box} style={item.paid ? paidFill : undefined} role="img" aria-label={item.paid ? "Pagado" : "Sin pagar"}>
             {item.paid ? "✓" : item.overdue ? "!" : ""}
           </span>
         ) : item.paid ? (
@@ -43,7 +44,7 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
             <input type="hidden" name="type" value={item.type} />
             <input type="hidden" name="id" value={item.id} />
             <input type="hidden" name="month" value={month} />
-            <button className={box} aria-label={`Desmarcar ${item.name}: borra el pago registrado este mes`} title="Desmarcar (borra el pago registrado)">
+            <button className={box} style={paidFill} aria-label={`Desmarcar ${item.name}: borra el pago registrado este mes`} title="Desmarcar (borra el pago registrado)">
               ✓
             </button>
           </form>
@@ -70,7 +71,7 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="num">{item.paid ? formatCOP(item.paidAmount) : item.expected ? formatCOP(item.expected) : "Variable"}</p>
+          <p className="display num text-lg">{item.paid ? formatCOP(item.paidAmount) : item.expected ? formatCOP(item.expected) : "Variable"}</p>
           {editable && !item.paid && item.quick && (
             <button type="button" className="text-xs text-ink-3 underline underline-offset-2 hover:text-ink" onClick={() => setOpen(!open)}>
               Otro valor

@@ -2,9 +2,9 @@ import { formatCOP } from "@/lib/finance";
 import { AnimatedNumber } from "./animated-number";
 
 /**
- * The page's opening picture: what you have and what you owe drawn as two
- * bars meeting at one point, on a track whose midpoint means "even". When the
- * meeting point sits right of the midpoint you have more than you owe.
+ * The opening tile: what you have and what you owe as two glowing bars that
+ * meet at one point, on a track whose midpoint means "even". When the meeting
+ * point sits right of the midpoint you have more than you owe.
  */
 export function BalanceBeam({ savings, debt, previousNet }: { savings: number; debt: number; previousNet: number | null }) {
   const net = savings - debt;
@@ -13,24 +13,25 @@ export function BalanceBeam({ savings, debt, previousNet }: { savings: number; d
   const diff = previousNet === null ? null : net - previousNet;
 
   return (
-    <section aria-labelledby="balance-title" className="pt-2 sm:pt-6">
-      <h1 id="balance-title" className="eyebrow">
-        Tu balance hoy
-      </h1>
-      <p className="display mt-1 text-5xl leading-none sm:text-7xl">
-        <AnimatedNumber value={net} from={previousNet ?? net} />
-      </p>
-      <p className="mt-3 text-ink-2">
-        {diff === null || diff === 0 ? (
-          net >= 0 ? "Tienes más de lo que debes." : "Debes más de lo que tienes."
-        ) : (
-          <>
-            {diff > 0 ? "Mejoró" : "Bajó"} <span className="num font-medium text-ink">{formatCOP(Math.abs(diff))}</span> frente al cierre del mes pasado.
-          </>
-        )}
-      </p>
+    <section aria-labelledby="balance-title" className="card flex h-full flex-col justify-between gap-8">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <h1 id="balance-title" className="eyebrow">
+            Tu balance hoy
+          </h1>
+          {diff !== null && diff !== 0 && (
+            <span className={`pill ${diff > 0 ? "pill-idea" : "pill-urgent"}`}>
+              <span aria-hidden="true">{diff > 0 ? "↑" : "↓"}</span>&nbsp;{diff > 0 ? "Mejoró" : "Bajó"} {formatCOP(Math.abs(diff))} este mes
+            </span>
+          )}
+        </div>
+        <p className="display mt-2 text-5xl leading-none sm:text-7xl">
+          <AnimatedNumber value={net} from={previousNet ?? net} />
+        </p>
+        <p className="mt-3 text-ink-2">{net >= 0 ? "Tienes más de lo que debes." : "Debes más de lo que tienes."}</p>
+      </div>
 
-      <div className="mt-8">
+      <div>
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="eyebrow">Tienes</p>
@@ -46,17 +47,17 @@ export function BalanceBeam({ savings, debt, previousNet }: { savings: number; d
           role="img"
           aria-label={`De cada 100 pesos entre lo que tienes y lo que debes, ${Math.round(share * 100)} son tuyos y ${100 - Math.round(share * 100)} son deuda.`}
         >
-          <div className="flex h-4 gap-0.5">
-            <div className="overflow-hidden" style={{ width: `${share * 100}%` }}>
-              <div className="grow-left h-full rounded-l-full bg-savings" />
+          <div className="flex h-6 gap-1">
+            <div className="overflow-hidden rounded-l-full" style={{ width: `${share * 100}%` }}>
+              <div className="grow-left h-full rounded-l-full" />
             </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="grow-right h-full rounded-r-full bg-debt" />
+            <div className="flex-1 overflow-hidden rounded-r-full">
+              <div className="grow-right h-full rounded-r-full" />
             </div>
           </div>
-          <div className="absolute -top-1.5 left-1/2 h-7 w-px bg-ink" aria-hidden="true" />
+          <div className="absolute -top-2 left-1/2 h-10 w-0.5 rounded-full bg-ink" aria-hidden="true" />
         </div>
-        <p className="mt-2 text-center text-xs text-ink-3">La línea marca el punto de equilibrio</p>
+        <p className="mt-3 text-center text-xs text-ink-3">La línea marca el punto de equilibrio</p>
       </div>
     </section>
   );

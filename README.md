@@ -1,4 +1,4 @@
-# Finanzas
+# Guaca
 
 Plataforma personal para llevar cuentas de ahorros, tarjetas de crédito y créditos, y ver cómo cambian los saldos con cada pago y cada gasto. Todo en pesos colombianos.
 
@@ -32,10 +32,12 @@ Stack: Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind 4 · Re
 
 ## Diseño
 
-- Dos tintas, como en un libro de cuentas: esmeralda para lo que tienes y ocre para lo que debes. El par se validó para daltonismo en fondo claro y oscuro.
-- Newsreader (serif) para títulos y cifras, Instrument Sans para la interfaz; ambas se sirven desde el propio proyecto.
-- El resumen abre con el balance y una barra «tienes / debes» que se encuentra en un punto: a la derecha de la línea central, tienes más de lo que debes.
-- Tema claro y oscuro según el sistema; en teléfonos la navegación va abajo y «Registrar gasto» queda siempre a un toque.
+- Nombre de trabajo: **Guaca** (se cambia en `src/lib/brand.ts`).
+- Módulos de vidrio esmerilado sobre un fondo de aurora suave; violeta para las acciones.
+- Dos colores de datos que nunca cambian de significado: turquesa para lo que tienes y coral para lo que debes. El par se validó para daltonismo en fondo claro y oscuro.
+- Outfit para títulos y cifras, Plus Jakarta Sans para la interfaz; ambas se sirven desde el propio proyecto.
+- Barras y anillos con degradado que se dibujan al cargar, y gráfica de áreas. Con «reducir movimiento» activado, todo aparece en su estado final.
+- Tema claro y oscuro según el sistema; en teléfonos la navegación flota abajo y «Registrar gasto» queda siempre a un toque.
 
 ## Seguridad
 

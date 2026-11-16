@@ -23,8 +23,8 @@ export function DebtDescent({ account, balance }: { account: Account; balance: n
           <p className="font-medium group-hover:underline group-hover:underline-offset-4">{account.name}</p>
           <p className="display text-xl">{formatCOP(balance)}</p>
         </div>
-        <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-line" role="img" aria-label={`Queda por pagar el ${Math.round(remaining * 100)}% de ${formatCOP(start)}`}>
-          <div className="h-full rounded-full bg-debt transition-[width] duration-700" style={{ width: `${remaining * 100}%` }} />
+        <div className="track mt-2 h-3" role="img" aria-label={`Queda por pagar el ${Math.round(remaining * 100)}% de ${formatCOP(start)}`}>
+          <div className="fill fill-owe" style={{ width: `${remaining * 100}%` }} />
         </div>
         <p className="mt-2 text-sm text-ink-2">
           {balance <= 0

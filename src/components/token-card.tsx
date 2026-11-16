@@ -14,7 +14,7 @@ export function TokenCard({ kind, exists, origin }: { kind: "wallet" | "calendar
           <p className="text-sm text-ink-2">
             {kind === "calendar" ? "Tu dirección de calendario" : "Tu token"}. Cópialo ahora: no se vuelve a mostrar.
           </p>
-          <code className="block select-all break-all rounded-lg border border-line bg-bg p-3 text-sm">{value}</code>
+          <code className="block select-all break-all rounded-xl border border-line bg-surface/60 p-3 text-sm">{value}</code>
         </>
       ) : (
         <p className="text-sm text-ink-3">{exists ? "Ya hay uno activo. Si generas otro, el anterior deja de funcionar." : "Todavía no has generado uno."}</p>

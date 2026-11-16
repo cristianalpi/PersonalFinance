@@ -13,7 +13,7 @@ export function Sparkline({ values, color }: { values: (number | null)[]; color:
   const last = points[points.length - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true" className="shrink-0">
-      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={x(last.i)} cy={y(last.v)} r="3" fill={color} />
     </svg>
   );

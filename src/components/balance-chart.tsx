@@ -1,6 +1,6 @@
 "use client";
 
-import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCOP, formatCompact } from "@/lib/finance";
 
 export interface ChartSeries {
@@ -14,52 +14,61 @@ export const HAVE_OWE: ChartSeries[] = [
   { key: "debt", name: "Debes", color: "var(--debt)" },
 ];
 
-/** Month-end balances as lines on one peso axis. A single series needs no legend: the title names it. */
+/**
+ * Month-end balances as soft filled curves on one peso axis. The fill fades
+ * to nothing so two overlapping series stay readable; the line carries the value.
+ * A single series needs no legend: the title names it.
+ */
 export function BalanceChart({ data, series }: { data: Record<string, string | number | null>[]; series: ChartSeries[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke="var(--line)" vertical={false} />
-          <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: "var(--line)" }} tick={{ fill: "var(--ink-3)", fontSize: 12 }} />
-          <YAxis
-            width={64}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fill: "var(--ink-3)", fontSize: 12 }}
-            tickFormatter={(v: number) => formatCompact(v)}
-          />
+        <AreaChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+          <defs>
+            {series.map((s) => (
+              <linearGradient key={s.key} id={`area-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid stroke="color-mix(in srgb, var(--ink) 10%, transparent)" strokeDasharray="3 6" vertical={false} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--ink-3)", fontSize: 12 }} />
+          <YAxis width={64} tickLine={false} axisLine={false} tick={{ fill: "var(--ink-3)", fontSize: 12 }} tickFormatter={(v: number) => formatCompact(v)} />
           <Tooltip
             formatter={(value) => formatCOP(Number(value))}
-            cursor={{ stroke: "var(--ink-3)", strokeWidth: 1 }}
-            contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            labelStyle={{ color: "var(--ink-2)" }}
+            cursor={{ stroke: "var(--brand)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
+            contentStyle={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, fontSize: 13, boxShadow: "var(--shadow)" }}
+            labelStyle={{ color: "var(--ink-2)", fontWeight: 600 }}
             itemStyle={{ color: "var(--ink)" }}
           />
           {series.length > 1 && (
             <Legend
               verticalAlign="top"
               align="left"
-              iconType="plainline"
+              iconType="circle"
               height={32}
               itemSorter={null}
-              formatter={(name) => <span style={{ color: "var(--ink-2)", fontSize: 13 }}>{name}</span>}
+              formatter={(name) => <span style={{ color: "var(--ink-2)", fontSize: 13, fontWeight: 500 }}>{name}</span>}
             />
           )}
           {series.map((s) => (
-            <Line
+            <Area
               key={s.key}
-              type="linear"
+              type="monotone"
               dataKey={s.key}
               name={s.name}
               stroke={s.color}
-              strokeWidth={2}
-              dot={data.length < 3 ? { r: 4 } : false}
-              activeDot={{ r: 5, stroke: "var(--surface)", strokeWidth: 2 }}
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill={`url(#area-${s.key})`}
+              dot={data.length < 3 ? { r: 4, fill: s.color } : false}
+              activeDot={{ r: 6, stroke: "var(--surface)", strokeWidth: 3 }}
+              animationDuration={1100}
               connectNulls={false}
             />
           ))}
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

@@ -1,3 +1,4 @@
+import { Logo } from "@/components/logo";
 import { Nav } from "@/components/nav";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../actions";
@@ -7,10 +8,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { count } = await supabase.from("wallet_inbox").select("id", { count: "exact", head: true });
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-28 sm:px-6 sm:pb-16">
+    <div className="mx-auto w-full max-w-5xl px-4 pb-36 sm:px-6 sm:pb-16">
       <header className="flex items-center justify-between gap-3 py-4 sm:py-5">
         <div className="flex items-center gap-4">
-          <span className="display text-xl">Finanzas</span>
+          <Logo />
           <Nav pending={count ?? 0} />
         </div>
         <form action={signOut}>

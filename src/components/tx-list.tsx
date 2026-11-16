@@ -14,7 +14,7 @@ const FILTERS: { value: TxKind | "all"; label: string }[] = [
 // The badge's shape and arrow carry the kind; the tint only reinforces it.
 const LOOK: Record<TxKind, { glyph: string; badge: string; sign: string }> = {
   expense: { glyph: "↗", badge: "bg-debt/15 text-debt", sign: "−" },
-  payment: { glyph: "⇄", badge: "bg-ink/10 text-ink", sign: "−" },
+  payment: { glyph: "⇄", badge: "bg-brand/15 text-brand", sign: "−" },
   income: { glyph: "↙", badge: "bg-savings/15 text-savings", sign: "+" },
 };
 
@@ -90,7 +90,7 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
         // Re-keying on the filter replays the entrance animation for the new set.
         <div key={`${filter}|${query}`} className="flex flex-col gap-4">
           {days.map((day) => (
-            <div key={day.date} className="card rise p-0" style={{ "--i": position } as React.CSSProperties}>
+            <div key={day.date} className="card rise overflow-hidden p-0 sm:p-0" style={{ "--i": position } as React.CSSProperties}>
               <div className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
                 <h3 className="text-sm font-medium" title={relativeDay(daysBetween(today, day.date))}>{dayLabel(day.date)}</h3>
                 <p className="num text-xs text-ink-3">
@@ -105,7 +105,7 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                   return (
                     <li
                       key={tx.id}
-                      className="rise group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg sm:px-5"
+                      className="rise group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-brand/5 sm:px-5"
                       style={{ "--i": position++ } as React.CSSProperties}
                     >
                       <span className={`badge ${look.badge}`} aria-hidden="true">{look.glyph}</span>
@@ -113,7 +113,7 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                         <p className="truncate font-medium">{title(tx)}</p>
                         <p className="truncate text-sm text-ink-3">{detail(tx)}</p>
                       </div>
-                      <p className="num shrink-0 font-medium">
+                      <p className="display num shrink-0 text-lg">
                         {look.sign}
                         {formatCOP(tx.amount)}
                       </p>

@@ -17,7 +17,7 @@ export function Nav({ pending }: { pending: number }) {
   const items = ITEMS.map((item) => ({ ...item, active: item.href === "/" ? pathname === "/" : pathname.startsWith(item.href) }));
   const dot = (href: string) =>
     href === "/movimientos" && pending > 0 ? (
-      <span className="absolute -right-1 -top-1 size-2 rounded-full bg-debt" aria-label={`${pending} por revisar`} />
+      <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-debt ring-2 ring-surface" aria-label={`${pending} por revisar`} />
     ) : null;
 
   return (
@@ -28,7 +28,7 @@ export function Nav({ pending }: { pending: number }) {
             key={item.href}
             href={item.href}
             aria-current={item.active ? "page" : undefined}
-            className={`relative rounded-lg px-3 py-1.5 transition-colors ${item.active ? "bg-surface text-ink shadow-sm" : "text-ink-2 hover:text-ink"}`}
+            className={`relative rounded-full px-3.5 py-1.5 transition-colors ${item.active ? "bg-brand/15 font-semibold text-ink" : "text-ink-2 hover:text-ink"}`}
           >
             {item.label}
             {dot(item.href)}
@@ -36,7 +36,7 @@ export function Nav({ pending }: { pending: number }) {
         ))}
       </nav>
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+        className="card fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-20 grid grid-cols-5 rounded-3xl p-1.5 sm:hidden"
         aria-label="Secciones"
       >
         {items.map((item) => (
@@ -44,7 +44,7 @@ export function Nav({ pending }: { pending: number }) {
             key={item.href}
             href={item.href}
             aria-current={item.active ? "page" : undefined}
-            className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${item.active ? "text-ink" : "text-ink-3"}`}
+            className={`flex flex-col items-center gap-0.5 rounded-2xl py-1.5 text-[11px] font-medium transition-colors ${item.active ? "bg-brand/15 text-brand" : "text-ink-3"}`}
           >
             <span className="relative">
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={item.active ? 2 : 1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -60,7 +60,7 @@ export function Nav({ pending }: { pending: number }) {
       {!pathname.startsWith("/movimientos") && (
         <Link
           href="/movimientos#nuevo"
-          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-12 items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-bg shadow-lg shadow-ink/20 sm:hidden"
+          className="btn fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-20 h-12 gap-2 rounded-full px-5 sm:hidden"
         >
           <span aria-hidden="true" className="text-lg leading-none">+</span> Registrar gasto
         </Link>

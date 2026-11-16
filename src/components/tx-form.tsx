@@ -26,8 +26,8 @@ export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: 
         {KIND_OPTIONS.map((option) => (
           <label
             key={option.kind}
-            className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm ${
-              kind === option.kind ? "border-ink bg-ink text-bg" : "border-line text-ink-2"
+            className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              kind === option.kind ? "border-transparent bg-brand text-white" : "border-line text-ink-2"
             }`}
           >
             <input
