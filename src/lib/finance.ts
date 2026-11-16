@@ -1,0 +1,211 @@
+// Pure balance logic. No framework imports, so it runs under `node --test`.
+// Dates are 'YYYY-MM-DD' strings throughout to stay clear of timezone shifts.
+
+export type AccountKind = "savings" | "credit_card" | "loan";
+export type TxKind = "income" | "expense" | "payment";
+
+export interface Account {
+  id: string;
+  kind: AccountKind;
+  name: string;
+  institution: string | null;
+  opening_balance: number;
+  opening_date: string;
+  credit_limit: number | null;
+  annual_rate: number | null;
+  monthly_payment: number | null;
+  statement_day: number | null;
+  due_day: number | null;
+}
+
+export interface Tx {
+  id: string;
+  account_id: string;
+  source_account_id: string | null;
+  kind: TxKind;
+  amount: number;
+  category: string | null;
+  description: string | null;
+  occurred_on: string;
+  source: string;
+}
+
+export const KIND_LABEL: Record<AccountKind, string> = {
+  savings: "Cuenta de ahorros",
+  credit_card: "Tarjeta de crédito",
+  loan: "Crédito",
+};
+
+export const isDebt = (account: Pick<Account, "kind">) => account.kind !== "savings";
+
+/** Which movement kinds may be recorded directly on an account of this kind. */
+export function allowedTxKinds(kind: AccountKind): TxKind[] {
+  return kind === "savings" ? ["income", "expense"] : ["expense", "payment"];
+}
+
+/**
+ * How one movement changes an account's balance. For savings the balance is
+ * money held; for cards and loans it is money owed, so a purchase raises it
+ * and a payment lowers it.
+ */
+export function effect(account: Account, tx: Tx): number {
+  if (tx.account_id === account.id) {
+    if (account.kind === "savings") {
+      if (tx.kind === "income") return tx.amount;
+      if (tx.kind === "expense") return -tx.amount;
+      return 0;
+    }
+    if (tx.kind === "expense") return tx.amount;
+    if (tx.kind === "payment") return -tx.amount;
+    return 0;
+  }
+  if (tx.source_account_id === account.id && tx.kind === "payment") return -tx.amount;
+  return 0;
+}
+
+/** Balance at the end of `date` (inclusive); with no date, the balance after every movement. */
+export function balanceAt(account: Account, txs: Tx[], date?: string): number {
+  let balance = account.opening_balance;
+  for (const tx of txs) {
+    if (date && tx.occurred_on > date) continue;
+    balance += effect(account, tx);
+  }
+  return balance;
+}
+
+export interface Totals {
+  savings: number;
+  debt: number;
+  net: number;
+}
+
+export function totals(accounts: Account[], txs: Tx[], date?: string): Totals {
+  let savings = 0;
+  let debt = 0;
+  for (const account of accounts) {
+    if (date && account.opening_date > date) continue;
+    const balance = balanceAt(account, txs, date);
+    if (isDebt(account)) debt += balance;
+    else savings += balance;
+  }
+  return { savings, debt, net: savings - debt };
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate(); // month is 1-based
+}
+
+/** The last `count` months ending at the month of `today`, oldest first, as 'YYYY-MM'. */
+export function lastMonths(today: string, count: number): string[] {
+  let year = Number(today.slice(0, 4));
+  let month = Number(today.slice(5, 7));
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    out.unshift(`${year}-${pad(month)}`);
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  return out;
+}
+
+export function monthEnd(month: string): string {
+  const year = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  return `${month}-${pad(daysInMonth(year, m))}`;
+}
+
+const MONTH_NAMES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+export function monthLabel(month: string): string {
+  return `${MONTH_NAMES[Number(month.slice(5, 7)) - 1]} ${month.slice(2, 4)}`;
+}
+
+export interface MonthPoint extends Totals {
+  month: string;
+  label: string;
+  /** Balance per account id; null while the account did not exist yet. */
+  byAccount: Record<string, number | null>;
+}
+
+/**
+ * Month-end balances for the last `count` months. The current month is cut at
+ * `today`, so its point is the balance as of now, not a projection.
+ */
+export function monthlySeries(accounts: Account[], txs: Tx[], today: string, count = 12): MonthPoint[] {
+  return lastMonths(today, count).map((month) => {
+    const end = monthEnd(month);
+    const cutoff = end > today ? today : end;
+    const byAccount: Record<string, number | null> = {};
+    for (const account of accounts) {
+      byAccount[account.id] = account.opening_date > cutoff ? null : balanceAt(account, txs, cutoff);
+    }
+    return { month, label: monthLabel(month), ...totals(accounts, txs, cutoff), byAccount };
+  });
+}
+
+export interface CategoryTotal {
+  category: string;
+  amount: number;
+}
+
+/** Spending (purchases and expenses, not debt payments) in a 'YYYY-MM' month, largest first. */
+export function spendingByCategory(txs: Tx[], month: string): CategoryTotal[] {
+  const sums = new Map<string, number>();
+  for (const tx of txs) {
+    if (tx.kind !== "expense" || !tx.occurred_on.startsWith(month)) continue;
+    const category = tx.category?.trim() || "Sin categoría";
+    sums.set(category, (sums.get(category) ?? 0) + tx.amount);
+  }
+  return [...sums.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/** Next date on or after `today` that falls on `dueDay`, clamped to short months. */
+export function nextDueDate(dueDay: number, today: string): string {
+  let year = Number(today.slice(0, 4));
+  let month = Number(today.slice(5, 7));
+  for (let i = 0; i < 2; i++) {
+    const day = Math.min(dueDay, daysInMonth(year, month));
+    const candidate = `${year}-${pad(month)}-${pad(day)}`;
+    if (candidate >= today) return candidate;
+    month += 1;
+    if (month === 13) {
+      month = 1;
+      year += 1;
+    }
+  }
+  throw new Error("unreachable: next month's due date is always in the future");
+}
+
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+const cop = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const copCompact = new Intl.NumberFormat("es-CO", { notation: "compact", maximumFractionDigits: 1 });
+
+export const formatCOP = (amount: number) => cop.format(amount);
+export const formatCompact = (amount: number) => `$${copCompact.format(amount)}`;
+
+export function formatDate(date: string): string {
+  return `${Number(date.slice(8, 10))} ${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
+}
+
+/** Today's date in Colombia, where the user's months and due dates are counted. */
+export function todayInBogota(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(now);
+}
+
+/** Parses what a person types as pesos ("1.500.000", "$ 80,000", "25000") into an integer. */
+export function parsePesos(input: string): number | null {
+  const digits = input.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const value = Number(digits);
+  return Number.isSafeInteger(value) ? value : null;
+}
