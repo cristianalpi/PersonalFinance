@@ -13,11 +13,11 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Ajustes</h1>
+      <h1 className="display pt-2 text-3xl">Ajustes</h1>
 
       <section className="card flex flex-col gap-4">
         <div>
-          <h2 className="font-semibold">Apple Wallet: registrar pagos automáticamente</h2>
+          <h2 className="display text-2xl">Apple Wallet: registrar pagos automáticamente</h2>
           <p className="text-sm text-ink-3">
             Cada vez que pagas con Apple Pay desde el iPhone o el Apple Watch, un Atajo envía el pago aquí. No captura pagos con la tarjeta física.
           </p>
@@ -60,7 +60,7 @@ export default async function SettingsPage() {
 
       <section className="card flex flex-col gap-4">
         <div>
-          <h2 className="font-semibold">Recordatorios en tu calendario</h2>
+          <h2 className="display text-2xl">Recordatorios en tu calendario</h2>
           <p className="text-sm text-ink-3">
             Una dirección de calendario con las fechas de pago de tarjetas, créditos y recibos de los próximos tres meses, con aviso dos días antes y el mismo
             día.

@@ -8,7 +8,7 @@ export function BillForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBill, {});
   return (
     <form action={action} className="card flex flex-col gap-4">
-      <h2 className="font-semibold">Nuevo gasto fijo</h2>
+      <h2 className="display text-2xl">Nuevo gasto fijo</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <label className="field">
           Nombre

@@ -13,7 +13,7 @@ export function AccountForm({ today }: { today: string }) {
 
   return (
     <form action={action} className="card flex flex-col gap-4">
-      <h2 className="font-semibold">Nueva cuenta</h2>
+      <h2 className="display text-2xl">Nueva cuenta</h2>
       <label className="field">
         Tipo
         <select className="input" name="kind" value={kind} onChange={(e) => setKind(e.target.value as AccountKind)}>

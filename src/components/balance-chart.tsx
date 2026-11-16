@@ -3,18 +3,19 @@
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCOP, formatCompact } from "@/lib/finance";
 
-export interface BalancePoint {
-  label: string;
-  savings: number;
-  debt: number;
+export interface ChartSeries {
+  key: string;
+  name: string;
+  color: string;
 }
 
-const SERIES = [
-  { key: "savings", name: "Ahorros", color: "var(--savings)" },
-  { key: "debt", name: "Deuda", color: "var(--debt)" },
-] as const;
+export const HAVE_OWE: ChartSeries[] = [
+  { key: "savings", name: "Tienes", color: "var(--savings)" },
+  { key: "debt", name: "Debes", color: "var(--debt)" },
+];
 
-export function BalanceChart({ data }: { data: BalancePoint[] }) {
+/** Month-end balances as lines on one peso axis. A single series needs no legend: the title names it. */
+export function BalanceChart({ data, series }: { data: Record<string, string | number | null>[]; series: ChartSeries[] }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -35,14 +36,17 @@ export function BalanceChart({ data }: { data: BalancePoint[] }) {
             labelStyle={{ color: "var(--ink-2)" }}
             itemStyle={{ color: "var(--ink)" }}
           />
-          <Legend
-            verticalAlign="top"
-            align="left"
-            iconType="plainline"
-            height={32}
-            formatter={(name) => <span style={{ color: "var(--ink-2)", fontSize: 13 }}>{name}</span>}
-          />
-          {SERIES.map((s) => (
+          {series.length > 1 && (
+            <Legend
+              verticalAlign="top"
+              align="left"
+              iconType="plainline"
+              height={32}
+              itemSorter={null}
+              formatter={(name) => <span style={{ color: "var(--ink-2)", fontSize: 13 }}>{name}</span>}
+            />
+          )}
+          {series.map((s) => (
             <Line
               key={s.key}
               type="linear"
@@ -52,6 +56,7 @@ export function BalanceChart({ data }: { data: BalancePoint[] }) {
               strokeWidth={2}
               dot={data.length < 3 ? { r: 4 } : false}
               activeDot={{ r: 5, stroke: "var(--surface)", strokeWidth: 2 }}
+              connectNulls={false}
             />
           ))}
         </LineChart>

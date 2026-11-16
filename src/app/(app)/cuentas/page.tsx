@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { deleteAccount } from "@/app/actions";
 import { AccountForm } from "@/components/account-form";
 import { loadData } from "@/lib/data";
@@ -9,7 +10,7 @@ export default async function AccountsPage() {
   const { accounts, txs, today } = await loadData();
   return (
     <>
-      <h1 className="text-2xl font-semibold">Cuentas</h1>
+      <h1 className="display pt-2 text-3xl">Cuentas</h1>
       <AccountForm today={today} />
       {ORDER.map((kind) => {
         const group = accounts.filter((a) => a.kind === kind);
@@ -21,7 +22,9 @@ export default async function AccountsPage() {
               {group.map((account) => (
                 <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
-                    <p className="font-medium">{account.name}</p>
+                    <Link href={`/cuentas/${account.id}`} className="font-medium underline-offset-4 hover:underline">
+                      {account.name}
+                    </Link>
                     <p className="text-sm text-ink-3">
                       {[
                         account.institution,
@@ -34,7 +37,7 @@ export default async function AccountsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <p className="num text-lg font-semibold">{formatCOP(balanceAt(account, txs))}</p>
+                    <p className="display text-xl">{formatCOP(balanceAt(account, txs))}</p>
                     <details className="relative text-sm">
                       <summary className="cursor-pointer text-ink-3 hover:text-ink">Eliminar</summary>
                       <form action={deleteAccount} className="mt-2 flex flex-col items-end gap-1">

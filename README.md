@@ -30,6 +30,13 @@ Stack: Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind 4 · Re
 | `npm test` | Pruebas de saldos, recomendaciones, calendario y del SQL (en un Postgres embebido) |
 | `npm run lint` | ESLint |
 
+## Diseño
+
+- Dos tintas, como en un libro de cuentas: esmeralda para lo que tienes y ocre para lo que debes. El par se validó para daltonismo en fondo claro y oscuro.
+- Newsreader (serif) para títulos y cifras, Instrument Sans para la interfaz; ambas se sirven desde el propio proyecto.
+- El resumen abre con el balance y una barra «tienes / debes» que se encuentra en un punto: a la derecha de la línea central, tienes más de lo que debes.
+- Tema claro y oscuro según el sistema; en teléfonos la navegación va abajo y «Registrar gasto» queda siempre a un toque.
+
 ## Seguridad
 
 Las tablas tienen Row Level Security: cada fila pertenece a `auth.uid()`. El repositorio solo contiene código; los datos viven en tu proyecto de Supabase y `.env.local` no se sube.

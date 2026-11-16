@@ -12,7 +12,7 @@ export default async function BillsPage() {
   return (
     <>
       <div>
-        <h1 className="text-2xl font-semibold">Recibos y gastos fijos</h1>
+        <h1 className="display pt-2 text-3xl">Recibos y gastos fijos</h1>
         <p className="text-sm text-ink-3">
           Lo que pagas cada mes en una fecha fija. Aparecen en Próximos pagos, en las recomendaciones y en tu calendario.
         </p>
@@ -28,8 +28,8 @@ export default async function BillsPage() {
             </p>
           </div>
           <ul className="mt-2 divide-y divide-line">
-            {rows.map(({ bill, status }, i) => (
-              <li key={bill.id} className="rise flex flex-col gap-3 py-4" style={{ "--i": i } as React.CSSProperties}>
+            {rows.map(({ bill, status }) => (
+              <li key={bill.id} className="flex flex-col gap-3 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className={`badge ${status.paidThisMonth ? "bg-savings/15 text-savings" : status.days < 0 ? "bg-ink text-bg" : "bg-ink/10 text-ink"}`} aria-hidden="true">

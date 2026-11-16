@@ -19,8 +19,8 @@ export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: 
   const savings = accounts.filter((a) => a.kind === "savings");
 
   return (
-    <form action={action} className="card flex flex-col gap-4">
-      <h2 className="font-semibold">Nuevo movimiento</h2>
+    <form id="nuevo" action={action} className="card flex scroll-mt-4 flex-col gap-4">
+      <h2 className="display text-2xl">Nuevo movimiento</h2>
       <fieldset className="flex flex-wrap gap-2">
         <legend className="sr-only">Tipo de movimiento</legend>
         {KIND_OPTIONS.map((option) => (

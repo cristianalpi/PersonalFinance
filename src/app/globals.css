@@ -1,28 +1,33 @@
 @import "tailwindcss";
 
+/*
+  Libro de cuentas. Cool paper, ink-navy text, and the two inks of a ledger:
+  emerald for what you have (haber), ochre for what you owe (debe). The two
+  series colors were checked for colour-blind separation on both surfaces.
+*/
 :root {
   color-scheme: light;
-  --bg: #f6f5f2;
-  --surface: #fcfcfb;
-  --line: #e4e2dc;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-3: #8a8983;
-  --savings: #2a78d6;
-  --debt: #eb6834;
+  --bg: #f2f5f4;
+  --surface: #ffffff;
+  --line: #dde3e1;
+  --ink: #14202b;
+  --ink-2: #4a5863;
+  --ink-3: #6f7c85;
+  --savings: #0c8a72;
+  --debt: #b8720a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #111110;
-    --surface: #1a1a19;
-    --line: #2e2e2b;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --ink-3: #8a8983;
-    --savings: #3987e5;
-    --debt: #d95926;
+    --bg: #0e1519;
+    --surface: #162027;
+    --line: #26333c;
+    --ink: #e9eef0;
+    --ink-2: #b3c0c8;
+    --ink-3: #8696a0;
+    --savings: #17a082;
+    --debt: #c48420;
   }
 }
 
@@ -35,8 +40,8 @@
   --color-ink-3: var(--ink-3);
   --color-savings: var(--savings);
   --color-debt: var(--debt);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Newsreader Variable", ui-serif, Georgia, serif;
 }
 
 body {
@@ -44,34 +49,9 @@ body {
   color: var(--ink);
 }
 
-@layer components {
-  .card {
-    @apply rounded-xl border border-line bg-surface p-5;
-  }
-  .eyebrow {
-    @apply text-xs font-medium uppercase tracking-wider text-ink-3;
-  }
-  .field {
-    @apply flex flex-col gap-1.5 text-sm text-ink-2;
-  }
-  .input {
-    @apply w-full rounded-lg border border-line bg-bg px-3 py-2 text-base text-ink outline-none focus:border-ink-2;
-  }
-  .btn {
-    @apply inline-flex items-center justify-center rounded-lg bg-ink px-4 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-85 disabled:opacity-50;
-  }
-  .btn-quiet {
-    @apply inline-flex items-center justify-center rounded-lg border border-line px-3 py-1.5 text-sm text-ink-2 hover:text-ink;
-  }
-  .num {
-    @apply tabular-nums;
-  }
-}
-
-@layer components {
-  .alert {
-    @apply border-l-2 border-ink pl-3 text-sm text-ink;
-  }
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 @keyframes rise {
@@ -81,11 +61,61 @@ body {
   }
 }
 
+@keyframes grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
 @layer components {
-  /* Staggered entrance: set --i to the item's position. */
+  .card {
+    @apply rounded-2xl border border-line bg-surface p-5 sm:p-6;
+  }
+  /* Small caption above a figure. Sentence case: it names the number, it is not decoration. */
+  .eyebrow {
+    @apply text-sm text-ink-3;
+  }
+  /* Headings and money share the serif, the way a passbook prints its figures. */
+  .display {
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+    @apply font-medium;
+  }
+  .field {
+    @apply flex flex-col gap-1.5 text-sm text-ink-2;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-base text-ink outline-none transition-colors focus:border-ink-2;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-bg transition-opacity hover:opacity-85 disabled:opacity-50;
+  }
+  .btn-quiet {
+    @apply inline-flex items-center justify-center rounded-lg border border-line px-3 py-2 text-sm text-ink-2 transition-colors hover:border-ink-3 hover:text-ink;
+  }
+  .num {
+    @apply tabular-nums;
+  }
+  .alert {
+    @apply border-l-2 border-ink pl-3 text-sm text-ink;
+  }
+  /* Entrance for content the person just asked for (a filter, a new list). */
   .rise {
-    animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-    animation-delay: calc(min(var(--i, 0), 14) * 35ms);
+    animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(min(var(--i, 0), 14) * 30ms);
+  }
+  /* The one page-load moment: the have/owe bars draw out from the centre line. */
+  .grow-left,
+  .grow-right {
+    animation: grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .grow-left {
+    transform-origin: right;
+  }
+  .grow-right {
+    transform-origin: left;
   }
   .chip {
     @apply cursor-pointer rounded-full border border-line px-3 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink;
@@ -96,10 +126,15 @@ body {
   .badge {
     @apply inline-flex size-9 shrink-0 items-center justify-center rounded-full text-base;
   }
+  .skeleton {
+    @apply animate-pulse rounded-2xl bg-line/60;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise {
+  .rise,
+  .grow-left,
+  .grow-right {
     animation: none;
   }
 }

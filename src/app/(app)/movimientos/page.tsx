@@ -11,7 +11,7 @@ export default async function TransactionsPage() {
   if (accounts.length === 0) {
     return (
       <section className="card flex flex-col items-start gap-3">
-        <h1 className="text-xl font-semibold">Primero registra una cuenta</h1>
+        <h1 className="display text-3xl">Primero registra una cuenta</h1>
         <Link href="/cuentas" className="btn">
           Ir a cuentas
         </Link>
@@ -31,7 +31,7 @@ export default async function TransactionsPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Movimientos</h1>
+      <h1 className="display pt-2 text-3xl">Movimientos</h1>
       <datalist id="categorias">
         {CATEGORIES.map((c) => (
           <option key={c} value={c} />
@@ -41,11 +41,11 @@ export default async function TransactionsPage() {
       <section className="card">
         <p className="eyebrow">Flujo de {monthLabel(month)}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
-          {flows.map((flow, i) => (
-            <div key={flow.label} className="rise" style={{ "--i": i } as React.CSSProperties}>
+          {flows.map((flow) => (
+            <div key={flow.label}>
               <div className="flex items-baseline justify-between gap-2 sm:block">
                 <p className="text-sm text-ink-2">{flow.label}</p>
-                <p className="num text-xl font-semibold">{formatCOP(flow.amount)}</p>
+                <p className="display text-2xl">{formatCOP(flow.amount)}</p>
               </div>
               <div className="mt-2 h-1.5 rounded-full bg-line">
                 <div className={`h-full rounded-full ${flow.bar} transition-[width] duration-700`} style={{ width: `${(flow.amount / largest) * 100}%` }} />
@@ -57,7 +57,7 @@ export default async function TransactionsPage() {
 
       {inbox.length > 0 && (
         <section className="card">
-          <h2 className="font-semibold">Pagos de Apple Wallet por revisar</h2>
+          <h2 className="display text-2xl">Pagos de Apple Wallet por revisar</h2>
           <p className="text-sm text-ink-3">Llegaron sin monto o con una tarjeta que aún no está vinculada. No afectan tus saldos hasta que los registres.</p>
           <ul className="mt-1 divide-y divide-line">
             {inbox.map((item) => (

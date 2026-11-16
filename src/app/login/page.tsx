@@ -5,8 +5,8 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center gap-6 px-5">
       <div>
-        <p className="eyebrow">Finanzas</p>
-        <h1 className="mt-1 text-2xl font-semibold">Entra a tus cuentas</h1>
+        <h1 className="display text-4xl">Finanzas</h1>
+        <p className="mt-2 text-ink-2">Lo que tienes, lo que debes y cómo va bajando.</p>
       </div>
       {isSupabaseConfigured ? (
         <LoginForm />

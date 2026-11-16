@@ -56,6 +56,15 @@ export function Nav({ pending }: { pending: number }) {
           </Link>
         ))}
       </nav>
+      {/* Phones: registering a purchase is the most frequent action, so it stays one tap away. */}
+      {!pathname.startsWith("/movimientos") && (
+        <Link
+          href="/movimientos#nuevo"
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-12 items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-bg shadow-lg shadow-ink/20 sm:hidden"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">+</span> Registrar gasto
+        </Link>
+      )}
     </>
   );
 }
