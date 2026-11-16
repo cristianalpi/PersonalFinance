@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { allowedTxKinds, parsePesos, type AccountKind, type TxKind } from "@/lib/finance";
@@ -8,6 +9,8 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 export interface FormState {
   error?: string;
   message?: string;
+  /** A freshly created token. It is only ever shown here; the database keeps its hash. */
+  token?: string;
 }
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
@@ -140,5 +143,120 @@ export async function deleteTx(form: FormData) {
   const supabase = await signedIn();
   const { error } = await supabase.from("transactions").delete().eq("id", text(form, "id"));
   if (error) throw new Error(`No se pudo eliminar el movimiento: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+export async function saveBill(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const name = text(form, "name");
+  if (!name) return { error: "Ponle un nombre al recibo." };
+  const due_day = optionalDay(form, "due_day");
+  if (due_day === null || due_day === "invalid") return { error: "El día de pago debe estar entre 1 y 31." };
+  const amountRaw = text(form, "amount");
+  const amount = amountRaw ? parsePesos(amountRaw) : null;
+  if (amountRaw && !amount) return { error: "El valor no es válido." };
+
+  const { error } = await supabase.from("bills").insert({ name, due_day, amount, category: text(form, "category") || null });
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: `${name} quedó registrado.` };
+}
+
+export async function deleteBill(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("bills").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo eliminar el recibo: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+/** Records this month's payment of a fixed bill as an expense on the chosen account. */
+export async function payBill(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe cuánto pagaste." };
+  const account_id = text(form, "account_id");
+  if (!account_id) return { error: "Elige con qué pagaste." };
+  const occurred_on = text(form, "occurred_on");
+  if (!DATE.test(occurred_on)) return { error: "La fecha no es válida." };
+
+  const { data: bill } = await supabase.from("bills").select("id, name, category").eq("id", text(form, "bill_id")).maybeSingle();
+  if (!bill) return { error: "Ese recibo ya no existe." };
+
+  const { error } = await supabase.from("transactions").insert({
+    kind: "expense",
+    account_id,
+    amount,
+    occurred_on,
+    bill_id: bill.id,
+    category: bill.category ?? "Recibos",
+    description: bill.name,
+  });
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Pago registrado." };
+}
+
+/** Creates (or replaces) the user's token of one kind and returns it once. */
+export async function createToken(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const kind = text(form, "kind");
+  if (kind !== "wallet" && kind !== "calendar") return { error: "Tipo de token no válido." };
+
+  const token = randomBytes(24).toString("base64url");
+  const token_hash = createHash("sha256").update(token).digest("hex");
+  const removed = await supabase.from("api_tokens").delete().eq("kind", kind);
+  if (removed.error) return { error: `No se pudo reemplazar el token: ${removed.error.message}` };
+  const { error } = await supabase.from("api_tokens").insert({ kind, token_hash });
+  if (error) return { error: `No se pudo crear el token: ${error.message}` };
+  revalidatePath("/ajustes");
+  return { token };
+}
+
+export async function clearWalletName(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("accounts").update({ wallet_card_name: null }).eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo desvincular la tarjeta: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+/** Turns a Wallet payment that needed review into an expense, optionally remembering the card. */
+export async function resolveInbox(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe el monto." };
+  const account_id = text(form, "account_id");
+  if (!account_id) return { error: "Elige la cuenta o tarjeta." };
+
+  const { data: item } = await supabase.from("wallet_inbox").select("*").eq("id", text(form, "id")).maybeSingle();
+  if (!item) return { error: "Ese pago ya fue revisado." };
+
+  if (form.get("remember") && item.card) {
+    const linked = await supabase.from("accounts").update({ wallet_card_name: item.card }).eq("id", account_id);
+    if (linked.error) {
+      return { error: linked.error.code === "23505" ? `Ya hay otra cuenta vinculada a «${item.card}».` : linked.error.message };
+    }
+  }
+
+  const { error } = await supabase.from("transactions").insert({
+    kind: "expense",
+    account_id,
+    amount,
+    occurred_on: item.occurred_on,
+    category: text(form, "category") || null,
+    description: text(form, "description") || item.merchant,
+    source: "wallet",
+  });
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  const removed = await supabase.from("wallet_inbox").delete().eq("id", item.id);
+  if (removed.error) return { error: `El gasto quedó registrado, pero no se pudo quitar de la bandeja: ${removed.error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Registrado." };
+}
+
+export async function discardInbox(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("wallet_inbox").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo descartar: ${error.message}`);
   revalidatePath("/", "layout");
 }

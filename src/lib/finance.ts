@@ -16,6 +16,7 @@ export interface Account {
   monthly_payment: number | null;
   statement_day: number | null;
   due_day: number | null;
+  wallet_card_name: string | null;
 }
 
 export interface Tx {
@@ -28,6 +29,7 @@ export interface Tx {
   description: string | null;
   occurred_on: string;
   source: string;
+  bill_id: string | null;
 }
 
 export const KIND_LABEL: Record<AccountKind, string> = {
@@ -35,6 +37,8 @@ export const KIND_LABEL: Record<AccountKind, string> = {
   credit_card: "Tarjeta de crédito",
   loan: "Crédito",
 };
+
+export const CATEGORIES = ["Ocio", "Mercado", "Restaurantes", "Transporte", "Hogar", "Salud", "Suscripciones", "Recibos", "Intereses y cargos", "Otros"];
 
 export const isDebt = (account: Pick<Account, "kind">) => account.kind !== "savings";
 
@@ -166,21 +170,28 @@ export function spendingByCategory(txs: Tx[], month: string): CategoryTotal[] {
     .sort((a, b) => b.amount - a.amount);
 }
 
-/** Next date on or after `today` that falls on `dueDay`, clamped to short months. */
-export function nextDueDate(dueDay: number, today: string): string {
+/** The next `count` dates on or after `today` that fall on `dueDay`, clamped to short months. */
+export function dueDates(dueDay: number, today: string, count: number): string[] {
   let year = Number(today.slice(0, 4));
   let month = Number(today.slice(5, 7));
-  for (let i = 0; i < 2; i++) {
+  const out: string[] = [];
+  while (out.length < count) {
     const day = Math.min(dueDay, daysInMonth(year, month));
     const candidate = `${year}-${pad(month)}-${pad(day)}`;
-    if (candidate >= today) return candidate;
+    if (candidate >= today) out.push(candidate);
     month += 1;
     if (month === 13) {
       month = 1;
       year += 1;
     }
   }
-  throw new Error("unreachable: next month's due date is always in the future");
+  return out;
+}
+
+export const nextDueDate = (dueDay: number, today: string) => dueDates(dueDay, today, 1)[0];
+
+export function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
 
 export function daysBetween(from: string, to: string): number {
@@ -208,4 +219,53 @@ export function parsePesos(input: string): number | null {
   if (!digits) return null;
   const value = Number(digits);
   return Number.isSafeInteger(value) ? value : null;
+}
+
+/**
+ * Parses the amount Apple Wallet hands to Shortcuts, whose format follows the
+ * phone's region: "85000", "$ 85.000,00", "85,000.00", "85.000". A separator
+ * followed by exactly three digits is a thousands separator; a final separator
+ * followed by one or two digits is the decimal point. Rounds to whole pesos.
+ */
+export function parseWalletAmount(input: unknown): number | null {
+  if (typeof input === "number") return Number.isFinite(input) && input > 0 ? Math.round(input) : null;
+  if (typeof input !== "string") return null;
+  const cleaned = input.replace(/[^\d.,]/g, "");
+  if (!/\d/.test(cleaned)) return null;
+  const decimal = cleaned.match(/[.,](\d{1,2})$/);
+  const whole = (decimal ? cleaned.slice(0, decimal.index) : cleaned).replace(/[.,]/g, "");
+  const value = Math.round(Number(`${whole || "0"}.${decimal ? decimal[1] : "0"}`));
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
+export interface Bill {
+  id: string;
+  name: string;
+  amount: number | null;
+  due_day: number;
+  category: string | null;
+}
+
+export interface BillStatus {
+  /** The due date that matters now: this month's while unpaid, next month's once paid. */
+  date: string;
+  paidThisMonth: boolean;
+  /** Days until `date`; negative when this month's bill is overdue. */
+  days: number;
+}
+
+/** A bill counts as paid for the month once a movement dated in that month references it. */
+export function billStatus(bill: Bill, txs: Tx[], today: string): BillStatus {
+  const month = today.slice(0, 7);
+  const paidThisMonth = txs.some((t) => t.bill_id === bill.id && t.occurred_on.startsWith(month));
+  const [thisMonth, nextMonth] = dueDates(bill.due_day, `${month}-01`, 2);
+  const date = paidThisMonth ? nextMonth : thisMonth;
+  return { date, paidThisMonth, days: daysBetween(today, date) };
+}
+
+export function relativeDay(days: number): string {
+  if (days === 0) return "hoy";
+  if (days === 1) return "mañana";
+  if (days === -1) return "venció ayer";
+  return days > 0 ? `en ${days} días` : `venció hace ${-days} días`;
 }

@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { deleteTx } from "@/app/actions";
+import { InboxItem } from "@/components/inbox-item";
 import { TxForm } from "@/components/tx-form";
+import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
-import { formatCOP, formatDate, type Tx } from "@/lib/finance";
-
-const SHOWN = 100;
+import { CATEGORIES, formatCOP, monthLabel } from "@/lib/finance";
 
 export default async function TransactionsPage() {
-  const { accounts, txs, today } = await loadData();
-  const nameOf = new Map(accounts.map((a) => [a.id, a.name]));
+  const { accounts, txs, inbox, today } = await loadData();
 
   if (accounts.length === 0) {
     return (
@@ -21,65 +19,56 @@ export default async function TransactionsPage() {
     );
   }
 
-  const title = (tx: Tx) =>
-    tx.kind === "payment"
-      ? `Pago a ${nameOf.get(tx.account_id)}`
-      : tx.kind === "income"
-        ? "Ingreso"
-        : (tx.category ?? "Gasto");
-
-  const detail = (tx: Tx) =>
-    [
-      formatDate(tx.occurred_on),
-      tx.kind === "payment"
-        ? tx.source_account_id
-          ? `desde ${nameOf.get(tx.source_account_id)}`
-          : null
-        : nameOf.get(tx.account_id),
-      tx.description,
-      tx.source === "wallet" ? "Apple Wallet" : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+  const month = today.slice(0, 7);
+  const sum = (kind: string) => txs.filter((t) => t.kind === kind && t.occurred_on.startsWith(month)).reduce((s, t) => s + t.amount, 0);
+  const flows = [
+    { label: "Ingresos", amount: sum("income"), bar: "bg-savings" },
+    { label: "Gastos", amount: sum("expense"), bar: "bg-debt" },
+    { label: "Pagos a deuda", amount: sum("payment"), bar: "bg-ink-2" },
+  ];
+  const largest = Math.max(1, ...flows.map((f) => f.amount));
+  const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
 
   return (
     <>
       <h1 className="text-2xl font-semibold">Movimientos</h1>
-      <TxForm accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
+      <datalist id="categorias">
+        {CATEGORIES.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+
       <section className="card">
-        <h2 className="eyebrow">Recientes</h2>
-        {txs.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-3">Aún no hay movimientos.</p>
-        ) : (
-          <ul className="mt-2 divide-y divide-line">
-            {txs.slice(0, SHOWN).map((tx) => (
-              <li key={tx.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{title(tx)}</p>
-                  <p className="truncate text-sm text-ink-3">{detail(tx)}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <p className="num">
-                    {tx.kind === "income" ? "+" : "−"}
-                    {formatCOP(tx.amount)}
-                  </p>
-                  <form action={deleteTx}>
-                    <input type="hidden" name="id" value={tx.id} />
-                    <button className="text-sm text-ink-3 hover:text-ink" aria-label={`Eliminar ${title(tx)} del ${formatDate(tx.occurred_on)}`}>
-                      ✕
-                    </button>
-                  </form>
-                </div>
-              </li>
+        <p className="eyebrow">Flujo de {monthLabel(month)}</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          {flows.map((flow, i) => (
+            <div key={flow.label} className="rise" style={{ "--i": i } as React.CSSProperties}>
+              <div className="flex items-baseline justify-between gap-2 sm:block">
+                <p className="text-sm text-ink-2">{flow.label}</p>
+                <p className="num text-xl font-semibold">{formatCOP(flow.amount)}</p>
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-line">
+                <div className={`h-full rounded-full ${flow.bar} transition-[width] duration-700`} style={{ width: `${(flow.amount / largest) * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {inbox.length > 0 && (
+        <section className="card">
+          <h2 className="font-semibold">Pagos de Apple Wallet por revisar</h2>
+          <p className="text-sm text-ink-3">Llegaron sin monto o con una tarjeta que aún no está vinculada. No afectan tus saldos hasta que los registres.</p>
+          <ul className="mt-1 divide-y divide-line">
+            {inbox.map((item) => (
+              <InboxItem key={item.id} item={item} accounts={spendable} />
             ))}
           </ul>
-        )}
-        {txs.length > SHOWN && (
-          <p className="mt-3 text-sm text-ink-3">
-            Se muestran los {SHOWN} más recientes de {txs.length}.
-          </p>
-        )}
-      </section>
+        </section>
+      )}
+
+      <TxForm accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
+      <TxList txs={txs} accountNames={Object.fromEntries(accounts.map((a) => [a.id, a.name]))} today={today} />
     </>
   );
 }

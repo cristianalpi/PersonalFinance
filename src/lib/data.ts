@@ -1,5 +1,13 @@
 import { redirect } from "next/navigation";
-import { todayInBogota, type Account, type Tx } from "./finance";
+import { todayInBogota, type Account, type Bill, type Tx } from "./finance";
+
+export interface InboxItem {
+  id: string;
+  card: string | null;
+  merchant: string | null;
+  amount: number | null;
+  occurred_on: string;
+}
 import { createClient } from "./supabase/server";
 
 const PAGE = 1000; // Supabase returns at most 1000 rows per request
@@ -30,5 +38,20 @@ export async function loadData() {
     if (data.length < PAGE) break;
   }
 
-  return { user, accounts: accounts as Account[], txs, today: todayInBogota() };
+  const [bills, inbox] = await Promise.all([
+    supabase.from("bills").select("*").order("due_day"),
+    supabase.from("wallet_inbox").select("*").order("received_at", { ascending: false }),
+  ]);
+  if (bills.error) throw new Error(`No se pudieron leer los recibos: ${bills.error.message}`);
+  if (inbox.error) throw new Error(`No se pudo leer la bandeja de Wallet: ${inbox.error.message}`);
+
+  return {
+    supabase,
+    user,
+    accounts: accounts as Account[],
+    txs,
+    bills: bills.data as Bill[],
+    inbox: inbox.data as InboxItem[],
+    today: todayInBogota(),
+  };
 }

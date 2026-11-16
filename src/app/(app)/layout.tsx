@@ -1,29 +1,23 @@
-import Link from "next/link";
+import { Nav } from "@/components/nav";
+import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../actions";
 
-const NAV = [
-  { href: "/", label: "Resumen" },
-  { href: "/cuentas", label: "Cuentas" },
-  { href: "/movimientos", label: "Movimientos" },
-];
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { count } = await supabase.from("wallet_inbox").select("id", { count: "exact", head: true });
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 py-5">
-        <nav className="flex items-center gap-1 text-sm">
-          <span className="eyebrow mr-3">Finanzas</span>
-          {NAV.map((item) => (
-            <Link key={item.href} href={item.href} className="rounded-lg px-3 py-1.5 text-ink-2 hover:bg-surface hover:text-ink">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+    <div className="mx-auto w-full max-w-5xl px-4 pb-28 sm:px-6 sm:pb-16">
+      <header className="flex items-center justify-between gap-3 py-4 sm:py-5">
+        <div className="flex items-center gap-4">
+          <span className="eyebrow">Finanzas</span>
+          <Nav pending={count ?? 0} />
+        </div>
         <form action={signOut}>
           <button className="btn-quiet">Salir</button>
         </form>
       </header>
-      <main className="flex flex-col gap-6">{children}</main>
+      <main className="flex flex-col gap-5 sm:gap-6">{children}</main>
     </div>
   );
 }

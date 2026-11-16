@@ -66,3 +66,6 @@ create policy "transactions: solo el dueño" on public.transactions
       )
     )
   );
+
+-- Explícito, para no depender de los privilegios por defecto del proyecto.
+grant select, insert, update, delete on public.accounts, public.transactions to authenticated;

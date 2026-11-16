@@ -1,16 +1,20 @@
 import Link from "next/link";
+import { AnimatedNumber } from "@/components/animated-number";
 import { BalanceChart } from "@/components/balance-chart";
 import { Sparkline } from "@/components/sparkline";
+import { advise } from "@/lib/advice";
 import { loadData } from "@/lib/data";
 import {
   KIND_LABEL,
   balanceAt,
+  billStatus,
   daysBetween,
   formatCOP,
   formatDate,
   isDebt,
   monthlySeries,
   nextDueDate,
+  relativeDay,
   spendingByCategory,
   totals,
 } from "@/lib/finance";
@@ -28,7 +32,7 @@ function Delta({ now, before }: { now: number; before: number | null }) {
 }
 
 export default async function Dashboard() {
-  const { accounts, txs, today } = await loadData();
+  const { accounts, txs, bills, inbox, today } = await loadData();
 
   if (accounts.length === 0) {
     return (
@@ -55,29 +59,45 @@ export default async function Dashboard() {
   const spending = spendingByCategory(txs, month);
   const spent = spending.reduce((sum, c) => sum + c.amount, 0);
 
-  const upcoming = accounts
-    .filter((a) => isDebt(a) && a.due_day && balanceAt(a, txs) > 0)
-    .map((a) => ({ account: a, date: nextDueDate(a.due_day!, today) }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const advice = advise(accounts, txs, today, bills);
+  const upcoming = [
+    ...accounts
+      .filter((a) => isDebt(a) && a.due_day && balanceAt(a, txs) > 0)
+      .map((a) => {
+        const date = nextDueDate(a.due_day!, today);
+        return { id: a.id, name: a.name, date, days: daysBetween(today, date), amount: a.monthly_payment ?? balanceAt(a, txs), note: null as string | null };
+      }),
+    ...bills.map((b) => {
+      const status = billStatus(b, txs, today);
+      return { id: b.id, name: b.name, date: status.date, days: status.days, amount: b.amount, note: status.paidThisMonth ? "pagado este mes" : null };
+    }),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+  const LEVEL = { urgent: "Urgente", warn: "Atención", idea: "Idea" };
 
   return (
     <>
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="card sm:col-span-3">
           <p className="eyebrow">Balance general</p>
-          <p className="num mt-2 text-4xl font-semibold sm:text-5xl">{formatCOP(now.net)}</p>
+          <p className="num mt-2 text-4xl font-semibold sm:text-5xl">
+            <AnimatedNumber value={now.net} from={previous ? previous.net : now.net} />
+          </p>
           <div className="mt-2">
             <Delta now={now.net} before={previous ? previous.net : null} />
           </div>
         </div>
         <div className="card">
           <p className="eyebrow">Ahorros</p>
-          <p className="num mt-2 text-2xl font-semibold">{formatCOP(now.savings)}</p>
+          <p className="num mt-2 text-2xl font-semibold">
+            <AnimatedNumber value={now.savings} from={previous ? previous.savings : now.savings} />
+          </p>
           <Delta now={now.savings} before={previous ? previous.savings : null} />
         </div>
         <div className="card">
           <p className="eyebrow">Deuda total</p>
-          <p className="num mt-2 text-2xl font-semibold">{formatCOP(now.debt)}</p>
+          <p className="num mt-2 text-2xl font-semibold">
+            <AnimatedNumber value={now.debt} from={previous ? previous.debt : now.debt} />
+          </p>
           <Delta now={now.debt} before={previous ? previous.debt : null} />
         </div>
         <div className="card">
@@ -86,6 +106,38 @@ export default async function Dashboard() {
           <p className="text-sm text-ink-3">{spending.length ? `${spending.length} categorías` : "Sin gastos registrados"}</p>
         </div>
       </section>
+
+      {inbox.length > 0 && (
+        <Link href="/movimientos" className="card flex items-center justify-between gap-3 text-sm hover:border-ink-3">
+          <span>
+            <span className="font-medium">{inbox.length === 1 ? "1 pago de Apple Wallet" : `${inbox.length} pagos de Apple Wallet`}</span> por revisar
+          </span>
+          <span aria-hidden="true">→</span>
+        </Link>
+      )}
+
+      {advice.length > 0 && (
+        <section className="card">
+          <h2 className="font-semibold">Recomendaciones</h2>
+          <ul className="mt-2 divide-y divide-line">
+            {advice.map((item, i) => (
+              <li key={item.id} className="rise flex gap-3 py-3" style={{ "--i": i } as React.CSSProperties}>
+                <span
+                  className={`mt-0.5 h-fit shrink-0 rounded-full border px-2 py-0.5 text-xs ${
+                    item.level === "urgent" ? "border-ink bg-ink text-bg" : item.level === "warn" ? "border-ink-2 text-ink" : "border-line text-ink-2"
+                  }`}
+                >
+                  {LEVEL[item.level]}
+                </span>
+                <div>
+                  <p className="font-medium">{item.title}</p>
+                  <p className="text-sm text-ink-2">{item.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card">
         <h2 className="font-semibold">Ahorros y deuda mes a mes</h2>
@@ -167,26 +219,24 @@ export default async function Dashboard() {
         <div className="card">
           <h2 className="font-semibold">Próximos pagos</h2>
           {upcoming.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-3">Agrega el día de pago a tus tarjetas y créditos para verlos aquí.</p>
+            <p className="mt-2 text-sm text-ink-3">Agrega el día de pago a tus tarjetas y créditos, o registra tus recibos, para verlos aquí.</p>
           ) : (
             <ul className="mt-2 divide-y divide-line">
-              {upcoming.map(({ account, date }) => {
-                const days = daysBetween(today, date);
-                return (
-                  <li key={account.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium">{account.name}</p>
-                      <p className="text-ink-3">
-                        {formatDate(date)} · {days === 0 ? "hoy" : days === 1 ? "mañana" : `en ${days} días`}
-                      </p>
-                    </div>
-                    <p className="num">{formatCOP(account.monthly_payment ?? balanceAt(account, txs))}</p>
-                  </li>
-                );
-              })}
+              {upcoming.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div>
+                    <p className="font-medium">{item.name}</p>
+                    <p className={item.days < 0 ? "font-medium text-ink" : "text-ink-3"}>
+                      {formatDate(item.date)} · {relativeDay(item.days)}
+                      {item.note ? ` · ${item.note}` : ""}
+                    </p>
+                  </div>
+                  <p className="num">{item.amount ? formatCOP(item.amount) : "Valor variable"}</p>
+                </li>
+              ))}
             </ul>
           )}
-          <p className="mt-2 text-xs text-ink-3">Créditos: cuota mensual. Tarjetas: saldo total de la deuda.</p>
+          <p className="mt-2 text-xs text-ink-3">Créditos: cuota mensual. Tarjetas: saldo total de la deuda. Recibos: su valor fijo.</p>
         </div>
 
         <div className="card">

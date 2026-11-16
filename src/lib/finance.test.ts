@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   balanceAt,
+  billStatus,
   monthlySeries,
   nextDueDate,
+  dueDates,
   parsePesos,
+  parseWalletAmount,
   spendingByCategory,
   todayInBogota,
   totals,
@@ -19,6 +22,7 @@ const base = {
   monthly_payment: null,
   statement_day: null,
   due_day: null,
+  wallet_card_name: null,
 };
 const ahorros: Account = { ...base, id: "a", kind: "savings", name: "Ahorros", opening_balance: 5_000_000, opening_date: "2026-09-01" };
 const tarjeta: Account = { ...base, id: "t", kind: "credit_card", name: "Visa", opening_balance: 2_000_000, opening_date: "2026-09-01" };
@@ -32,6 +36,7 @@ const tx = (t: Partial<Tx> & Pick<Tx, "account_id" | "kind" | "amount" | "occurr
   category: null,
   description: null,
   source: "manual",
+  bill_id: null,
   ...t,
 });
 
@@ -107,4 +112,31 @@ test("parsePesos accepts thousands separators and rejects empty input", () => {
 
 test("todayInBogota uses Colombian time, not UTC", () => {
   assert.equal(todayInBogota(new Date("2026-11-16T03:00:00Z")), "2026-11-15");
+});
+
+test("dueDates lists consecutive months", () => {
+  assert.deepEqual(dueDates(31, "2026-12-31", 3), ["2026-12-31", "2027-01-31", "2027-02-28"]);
+});
+
+test("parseWalletAmount reads the formats a phone can send", () => {
+  assert.equal(parseWalletAmount("85000"), 85_000);
+  assert.equal(parseWalletAmount("$ 85.000,00"), 85_000);
+  assert.equal(parseWalletAmount("85,000.00"), 85_000);
+  assert.equal(parseWalletAmount("85.000"), 85_000);
+  assert.equal(parseWalletAmount("COP 1.250.300"), 1_250_300);
+  assert.equal(parseWalletAmount("12.345,6"), 12_346);
+  assert.equal(parseWalletAmount(85000.4), 85_000);
+  assert.equal(parseWalletAmount("0,00"), null);
+  assert.equal(parseWalletAmount(""), null);
+  assert.equal(parseWalletAmount(undefined), null);
+});
+
+test("billStatus: unpaid shows this month's date (even overdue); paid moves to next month", () => {
+  const bill = { id: "b", name: "Internet", amount: 90_000, due_day: 10, category: null };
+  assert.deepEqual(billStatus(bill, [], "2026-11-08"), { date: "2026-11-10", paidThisMonth: false, days: 2 });
+  assert.deepEqual(billStatus(bill, [], "2026-11-15"), { date: "2026-11-10", paidThisMonth: false, days: -5 });
+  const paid = [tx({ account_id: "a", kind: "expense", amount: 90_000, occurred_on: "2026-11-09", bill_id: "b" })];
+  assert.deepEqual(billStatus(bill, paid, "2026-11-15"), { date: "2026-12-10", paidThisMonth: true, days: 25 });
+  const lastMonth = [tx({ account_id: "a", kind: "expense", amount: 90_000, occurred_on: "2026-10-31", bill_id: "b" })];
+  assert.equal(billStatus(bill, lastMonth, "2026-11-15").paidThisMonth, false);
 });

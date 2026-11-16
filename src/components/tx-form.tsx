@@ -10,8 +10,6 @@ const KIND_OPTIONS: { kind: TxKind; label: string }[] = [
   { kind: "income", label: "Ingreso" },
 ];
 
-const CATEGORIES = ["Ocio", "Mercado", "Restaurantes", "Transporte", "Hogar", "Salud", "Suscripciones", "Intereses y cargos", "Otros"];
-
 type AccountOption = Pick<Account, "id" | "name" | "kind">;
 
 export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: string }) {
@@ -86,11 +84,6 @@ export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: 
               <label className="field">
                 Categoría
                 <input className="input" name="category" list="categorias" defaultValue="Ocio" />
-                <datalist id="categorias">
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
               </label>
             )}
             <label className="field">
