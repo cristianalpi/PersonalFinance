@@ -17,6 +17,13 @@ export interface Account {
   statement_day: number | null;
   due_day: number | null;
   wallet_card_name: string | null;
+  /** Card colour chosen by the user; null = suggested from the bank. */
+  color?: string | null;
+  last4?: string | null;
+  /** Small image uploaded by the user, as a data URL. */
+  logo?: string | null;
+  /** Loans: the amount originally borrowed, to measure how much is left. */
+  original_amount?: number | null;
 }
 
 export interface Tx {
@@ -39,6 +46,26 @@ export const KIND_LABEL: Record<AccountKind, string> = {
 };
 
 export const CATEGORIES = ["Ocio", "Mercado", "Restaurantes", "Transporte", "Hogar", "Salud", "Suscripciones", "Recibos", "Intereses y cargos", "Otros"];
+
+const CATEGORY_ICON: Record<string, string> = {
+  ocio: "🎬",
+  mercado: "🛒",
+  restaurantes: "🍽️",
+  transporte: "🚗",
+  hogar: "🏠",
+  salud: "💊",
+  suscripciones: "📺",
+  recibos: "🧾",
+  "intereses y cargos": "🏦",
+  otros: "✨",
+};
+
+/** An emoji for a movement: by category for expenses, by kind for the rest. */
+export function txIcon(tx: Pick<Tx, "kind" | "category">): string {
+  if (tx.kind === "income") return "💰";
+  if (tx.kind === "payment") return "💳";
+  return CATEGORY_ICON[tx.category?.trim().toLowerCase() ?? ""] ?? "🧾";
+}
 
 export const isDebt = (account: Pick<Account, "kind">) => account.kind !== "savings";
 
@@ -204,6 +231,12 @@ const copCompact = new Intl.NumberFormat("es-CO", { notation: "compact", maximum
 export const formatCOP = (amount: number) => cop.format(amount);
 export const formatCompact = (amount: number) => `$${copCompact.format(amount)}`;
 
+/** As typed in a money field: "$ 1.500.000"; empty when there are no digits. */
+export function formatPesosInput(input: string | number | null | undefined): string {
+  const digits = String(input ?? "").replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "").slice(0, 13);
+  return digits ? `$ ${new Intl.NumberFormat("es-CO").format(Number(digits))}` : "";
+}
+
 export function formatDate(date: string): string {
   return `${Number(date.slice(8, 10))} ${MONTH_NAMES[Number(date.slice(5, 7)) - 1]} ${date.slice(0, 4)}`;
 }
@@ -341,8 +374,8 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
     });
   }
 
-  // Pending first, by due date; what is already paid sinks to the bottom.
-  return items.sort((a, b) => Number(a.paid) - Number(b.paid) || (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name));
+  // By due date, paid or not: a ticked row stays where the person tapped it instead of jumping away.
+  return items.sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name));
 }
 
 /** 'YYYY-MM' shifted by a number of months. */

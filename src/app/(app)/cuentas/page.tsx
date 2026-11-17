@@ -1,58 +1,61 @@
 import Link from "next/link";
 import { deleteAccount } from "@/app/actions";
+import { AccountCard } from "@/components/account-card";
 import { AccountForm } from "@/components/account-form";
+import { UsageBar } from "@/components/usage-bar";
 import { loadData } from "@/lib/data";
-import { KIND_LABEL, balanceAt, formatCOP, formatDate, type AccountKind } from "@/lib/finance";
+import { balanceAt, formatCOP, type AccountKind } from "@/lib/finance";
 
-const ORDER: AccountKind[] = ["savings", "credit_card", "loan"];
+const GROUPS: { kind: AccountKind; title: string }[] = [
+  { kind: "savings", title: "Cuentas de ahorros" },
+  { kind: "credit_card", title: "Tarjetas de crédito" },
+  { kind: "loan", title: "Créditos" },
+];
 
 export default async function AccountsPage() {
   const { accounts, txs, today } = await loadData();
   return (
     <>
       <h1 className="display pt-2 text-3xl">Cuentas</h1>
-      <AccountForm today={today} />
-      {ORDER.map((kind) => {
+
+      {GROUPS.map(({ kind, title }) => {
         const group = accounts.filter((a) => a.kind === kind);
         if (group.length === 0) return null;
         return (
-          <section key={kind} className="card">
-            <h2 className="eyebrow">{KIND_LABEL[kind]}</h2>
-            <ul className="mt-2 divide-y divide-line">
-              {group.map((account) => (
-                <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div>
-                    <Link href={`/cuentas/${account.id}`} className="font-medium underline-offset-4 hover:underline">
-                      {account.name}
+          <section key={kind} aria-label={title}>
+            <h2 className="display text-2xl">{title}</h2>
+            <ul className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {group.map((account, i) => {
+                const balance = balanceAt(account, txs);
+                return (
+                  <li key={account.id} className="rise flex flex-col gap-2" style={{ "--i": i } as React.CSSProperties}>
+                    <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-1" aria-label={`Ver ${account.name}`}>
+                      <AccountCard account={account} balance={Math.max(0, balance)} caption={kind === "savings" ? "Saldo" : "Lo que debes"}>
+                        {kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
+                      </AccountCard>
                     </Link>
-                    <p className="text-sm text-ink-3">
-                      {[
-                        account.institution,
-                        `Saldo inicial ${formatCOP(account.opening_balance)} el ${formatDate(account.opening_date)}`,
-                        account.due_day ? `Paga el día ${account.due_day}` : null,
-                        account.annual_rate !== null ? `${account.annual_rate}% E.A.` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <p className="display text-xl">{formatCOP(balanceAt(account, txs))}</p>
-                    <details className="relative text-sm">
-                      <summary className="cursor-pointer text-ink-3 hover:text-ink">Eliminar</summary>
-                      <form action={deleteAccount} className="mt-2 flex flex-col items-end gap-1">
-                        <input type="hidden" name="id" value={account.id} />
-                        <p className="text-xs text-ink-3">Se borran también sus movimientos.</p>
-                        <button className="btn-quiet">Sí, eliminar</button>
-                      </form>
-                    </details>
-                  </div>
-                </li>
-              ))}
+                    <div className="flex items-center justify-between px-1 text-sm">
+                      <Link href={`/cuentas/${account.id}#editar`} className="font-medium text-brand">
+                        Editar y personalizar
+                      </Link>
+                      <details className="relative">
+                        <summary className="cursor-pointer list-none text-ink-3 hover:text-ink">Eliminar</summary>
+                        <form action={deleteAccount} className="card absolute right-0 z-10 mt-2 flex w-64 flex-col items-start gap-2 p-4">
+                          <input type="hidden" name="id" value={account.id} />
+                          <p className="text-sm text-ink-2">Se borran también sus movimientos ({formatCOP(Math.abs(balance))} de saldo).</p>
+                          <button className="btn-quiet">Sí, eliminar</button>
+                        </form>
+                      </details>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         );
       })}
+
+      <AccountForm today={today} />
     </>
   );
 }

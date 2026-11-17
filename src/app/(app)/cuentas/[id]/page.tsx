@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AccountCard } from "@/components/account-card";
+import { AccountEditor } from "@/components/account-editor";
 import { BalanceChart } from "@/components/balance-chart";
+import { UsageBar } from "@/components/usage-bar";
+import { OpenEditorFromHash } from "./open-editor";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
-import { KIND_LABEL, balanceAt, formatCOP, formatDate, isDebt, monthlySeries, nextDueDate, relativeDay, daysBetween } from "@/lib/finance";
+import { balanceAt, formatCOP, formatDate, isDebt, monthlySeries, nextDueDate, relativeDay, daysBetween } from "@/lib/finance";
 
 export default async function AccountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,14 +36,14 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <div className="pt-2">
-        <Link href="/cuentas" className="text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline">
-          Cuentas
+      <div className="flex flex-col gap-3 pt-2">
+        <Link href={debt ? "/deudas" : "/cuentas"} className="text-sm font-medium text-brand">
+          {debt ? "Deudas" : "Cuentas"}
         </Link>
-        <h1 className="display mt-1 text-3xl">{account.name}</h1>
-        <p className="eyebrow">{KIND_LABEL[account.kind]}</p>
-        <p className="display mt-4 text-5xl leading-none">{formatCOP(balance)}</p>
-        <p className="mt-2 text-ink-2">{debt ? "Lo que debes hoy" : "Lo que tienes hoy"}</p>
+        <h1 className="sr-only">{account.name}</h1>
+        <AccountCard account={account} balance={Math.max(0, balance)} caption={debt ? "Lo que debes hoy" : "Lo que tienes hoy"} size="lg">
+          {account.kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
+        </AccountCard>
       </div>
 
       <section className="card" aria-labelledby="account-trend">
@@ -60,6 +64,12 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           ))}
         </dl>
       </section>
+
+      <details id="editar" className="card scroll-mt-4 [&[open]>summary]:mb-5">
+        <summary className="display cursor-pointer text-2xl">Editar y personalizar</summary>
+        <AccountEditor account={account} />
+      </details>
+      <OpenEditorFromHash />
 
       <h2 className="display text-2xl">Movimientos de esta cuenta</h2>
       <TxList txs={own} accountNames={Object.fromEntries(accounts.map((a) => [a.id, a.name]))} today={today} />

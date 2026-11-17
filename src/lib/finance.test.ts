@@ -143,7 +143,7 @@ test("billStatus: unpaid shows this month's date (even overdue); paid moves to n
   assert.equal(billStatus(bill, lastMonth, "2026-11-15").paidThisMonth, false);
 });
 
-test("monthlyChecklist: bills and debts for the month, pending first, renewed each month", () => {
+test("monthlyChecklist: bills and debts for the month, by due date, renewed each month", () => {
   const bills = [
     { id: "net", name: "Internet", amount: 90_000, due_day: 5, category: null },
     { id: "luz", name: "Luz", amount: null, due_day: 12, category: null },
@@ -158,9 +158,9 @@ test("monthlyChecklist: bills and debts for the month, pending first, renewed ea
 
   const nov = monthlyChecklist(all, bills, pay, "2026-11", "2026-11-15");
   assert.deepEqual(nov.map((i) => [i.name, i.paid, i.overdue]), [
+    ["Internet", true, false],
     ["Luz", false, true],
     ["Visa", false, false],
-    ["Internet", true, false],
     ["Libre inversión", true, false],
   ]);
   const byName = Object.fromEntries(nov.map((i) => [i.name, i]));

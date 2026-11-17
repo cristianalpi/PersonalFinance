@@ -84,11 +84,18 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
     opening_date,
     credit_limit: kind === "credit_card" ? parsePesos(text(form, "credit_limit")) || null : null,
     monthly_payment: kind === "loan" ? parsePesos(text(form, "monthly_payment")) || null : null,
+    ...(kind === "loan" && parsePesos(text(form, "original_amount")) ? { original_amount: parsePesos(text(form, "original_amount")) } : {}),
     annual_rate,
     statement_day,
     due_day,
   });
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (error) {
+    return {
+      error: /column .* does not exist|schema cache/i.test(error.message)
+        ? "Falta ejecutar la migración 0004 en Supabase."
+        : `No se pudo guardar: ${error.message}`,
+    };
+  }
   revalidatePath("/", "layout");
   return { message: `${name} quedó registrada.` };
 }
@@ -290,4 +297,58 @@ export async function unmarkPaid(form: FormData) {
   const { error } = form.get("type") === "bill" ? await query.eq("bill_id", id) : await query.eq("account_id", id).eq("kind", "payment");
   if (error) throw new Error(`No se pudo deshacer: ${error.message}`);
   revalidatePath("/", "layout");
+}
+
+const LOGO = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+/** Edits an account's details and the look of its card. The opening balance is not editable: it anchors the history. */
+export async function updateAccount(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const id = text(form, "id");
+  const { data: current } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
+  if (!current) return { error: "Esa cuenta ya no existe." };
+  const kind = current.kind as AccountKind;
+
+  const name = text(form, "name");
+  if (!name) return { error: "Ponle un nombre a la cuenta." };
+  const color = text(form, "color") || null;
+  if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) return { error: "El color no es válido." };
+  const last4 = text(form, "last4") || null;
+  if (last4 && !/^\d{4}$/.test(last4)) return { error: "Escribe exactamente 4 dígitos, o déjalo vacío." };
+  const logo = text(form, "logo") || null;
+  if (logo && (!LOGO.test(logo) || logo.length > 150000)) return { error: "La imagen no es válida o es muy grande." };
+
+  const debt = kind !== "savings";
+  const statement_day = kind === "credit_card" ? optionalDay(form, "statement_day") : null;
+  const due_day = debt ? optionalDay(form, "due_day") : null;
+  if (statement_day === "invalid" || due_day === "invalid") return { error: "Los días deben estar entre 1 y 31." };
+  const rateRaw = debt ? text(form, "annual_rate").replace(",", ".") : "";
+  const annual_rate = rateRaw ? Number(rateRaw) : null;
+  if (annual_rate !== null && !(annual_rate >= 0 && annual_rate < 1000)) return { error: "La tasa no es válida." };
+
+  const { error } = await supabase
+    .from("accounts")
+    .update({
+      name,
+      institution: text(form, "institution") || null,
+      color,
+      last4: kind === "loan" ? null : last4,
+      logo,
+      credit_limit: kind === "credit_card" ? parsePesos(text(form, "credit_limit")) || null : null,
+      monthly_payment: kind === "loan" ? parsePesos(text(form, "monthly_payment")) || null : null,
+      original_amount: kind === "loan" ? parsePesos(text(form, "original_amount")) || null : null,
+      statement_day,
+      due_day,
+      annual_rate,
+    })
+    .eq("id", id);
+  if (error) {
+    return {
+      error: /column .* does not exist|schema cache/i.test(error.message)
+        ? "Falta ejecutar la migración 0004 en Supabase."
+        : `No se pudo guardar: ${error.message}`,
+    };
+  }
+  revalidatePath("/", "layout");
+  return { message: "Cambios guardados." };
 }

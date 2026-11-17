@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { discardInbox, resolveInbox, type FormState } from "@/app/actions";
 import type { InboxItem as Item } from "@/lib/data";
 import { formatDate } from "@/lib/finance";
+import { MoneyInput } from "./money-input";
 
 export function InboxItem({ item, accounts }: { item: Item; accounts: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(resolveInbox, {});
@@ -17,7 +18,7 @@ export function InboxItem({ item, accounts }: { item: Item; accounts: { id: stri
         <input type="hidden" name="id" value={item.id} />
         <label className="field">
           Monto
-          <input className="input num" name="amount" inputMode="numeric" defaultValue={item.amount ?? ""} required />
+          <MoneyInput name="amount" defaultValue={item.amount} required />
         </label>
         <label className="field">
           Cuenta o tarjeta

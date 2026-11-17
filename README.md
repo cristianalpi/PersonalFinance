@@ -7,7 +7,7 @@ Stack: Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind 4 · Re
 ## Puesta en marcha
 
 1. Crea un proyecto en [Supabase](https://supabase.com).
-2. En el SQL Editor ejecuta, en orden, los archivos de `supabase/migrations/` (`0001`, `0002`, `0003`).
+2. En el SQL Editor ejecuta, en orden, los archivos de `supabase/migrations/` (`0001` a `0004`).
 3. Copia `.env.example` a `.env.local` y pon la URL y la clave *publishable* del proyecto.
 4. `npm install && npm run dev`, abre http://localhost:3000 y usa **Crear cuenta**.
 5. Como es de un solo usuario: después de crear tu cuenta, desactiva los registros nuevos en Supabase (Authentication → Sign In / Providers → *Allow new users to sign up*).
@@ -62,6 +62,8 @@ Los pasos para armar el Atajo están en la pantalla de Ajustes.
 
 ## Recibos y recordatorios
 
+- **Deudas**: saldo de cada tarjeta con su porcentaje de cupo usado, y de cada crédito con cuánto llevas pagado, cuotas restantes, intereses estimados y cuál conviene abonar primero.
+- **Tarjetas**: cada cuenta se dibuja como una tarjeta con el color de su banco (o el que elijas) y la imagen que subas; se edita en el detalle de la cuenta.
 - **Pagos**: lista mensual de pagos obligatorios (pagos fijos, tarjetas y créditos con deuda). Marcar uno registra el pago; no se guarda nada por mes, así que la lista se renueva sola el día 1 y los meses anteriores quedan como historial.
 - **Calendario**: `GET /api/calendar/<token>.ics` entrega las fechas de pago de tarjetas, créditos y recibos de los próximos tres meses, con alertas dos días antes y el mismo día. Se suscribe desde el calendario del teléfono; así llegan los avisos sin app propia.
 - **Recomendaciones** (`src/lib/advice.ts`): reglas sobre tus datos, recalculadas en cada carga: vencimientos cercanos sin pago, recibos vencidos, cupo alto, cuotas que los ahorros no cubren, categorías por encima de lo normal, cuánto falta para terminar un crédito y a qué deuda abonar primero.

@@ -214,9 +214,14 @@ export default async function Dashboard() {
       <div className="grid gap-4 lg:grid-cols-6 lg:gap-5">
         {debts.length > 0 && (
           <section className="card lg:col-span-3" aria-labelledby="debts-title">
-            <h2 id="debts-title" className="display text-2xl">
-              Tus deudas, bajando
-            </h2>
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 id="debts-title" className="display text-2xl">
+                Tus deudas, bajando
+              </h2>
+              <Link href="/deudas" className="text-sm font-medium text-brand">
+                Ver deudas
+              </Link>
+            </div>
             <ul className="mt-1 divide-y divide-line">
               {debts.map((account) => (
                 <DebtDescent key={account.id} account={account} balance={balanceAt(account, txs)} />

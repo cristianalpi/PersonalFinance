@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveAccount, type FormState } from "@/app/actions";
 import { KIND_LABEL, type AccountKind } from "@/lib/finance";
+import { MoneyInput } from "./money-input";
 
 const KINDS: AccountKind[] = ["savings", "credit_card", "loan"];
 
@@ -35,7 +36,7 @@ export function AccountForm({ today }: { today: string }) {
         </label>
         <label className="field">
           {debt ? "Cuánto debes hoy" : "Saldo hoy"}
-          <input className="input num" name="opening_balance" inputMode="numeric" placeholder="1.500.000" required />
+          <MoneyInput name="opening_balance" placeholder="$ 1.500.000" required />
         </label>
         <label className="field">
           Fecha de ese saldo
@@ -45,7 +46,7 @@ export function AccountForm({ today }: { today: string }) {
           <>
             <label className="field">
               Cupo total
-              <input className="input num" name="credit_limit" inputMode="numeric" />
+              <MoneyInput name="credit_limit" placeholder="$ 8.000.000" />
             </label>
             <label className="field">
               Día de corte
@@ -54,10 +55,16 @@ export function AccountForm({ today }: { today: string }) {
           </>
         )}
         {kind === "loan" && (
-          <label className="field">
-            Cuota mensual
-            <input className="input num" name="monthly_payment" inputMode="numeric" />
-          </label>
+          <>
+            <label className="field">
+              Cuota mensual
+              <MoneyInput name="monthly_payment" placeholder="$ 780.000" />
+            </label>
+            <label className="field">
+              Monto original del crédito (opcional)
+              <MoneyInput name="original_amount" placeholder="$ 24.000.000" />
+            </label>
+          </>
         )}
         {debt && (
           <>

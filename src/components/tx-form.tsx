@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { saveTx, type FormState } from "@/app/actions";
+import { MoneyInput } from "./money-input";
 import { allowedTxKinds, type Account, type TxKind } from "@/lib/finance";
 
 const KIND_OPTIONS: { kind: TxKind; label: string }[] = [
@@ -50,7 +51,7 @@ export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="field">
               Monto
-              <input className="input num" name="amount" inputMode="numeric" placeholder="85.000" required />
+              <MoneyInput name="amount" placeholder="$ 85.000" required />
             </label>
             <label className="field">
               Fecha

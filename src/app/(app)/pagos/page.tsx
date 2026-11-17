@@ -64,7 +64,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             </p>
             <p className="text-right text-sm text-ink-2">
               {done === items.length ? (
-                "Mes al día."
+                <span className="pill pill-idea text-sm">🎉 Mes al día</span>
               ) : (
                 <>
                   Faltan <span className="num font-medium text-ink">{formatCOP(pendingAmount)}</span>

@@ -108,3 +108,19 @@ test("token_owner is not callable from outside", async () => {
 test("two accounts of one user cannot share a Wallet card name", async () => {
   await assert.rejects(as(ANA, "insert into accounts (kind, name, wallet_card_name) values ('savings', 'Débito', 'VISA ORO')"), /duplicate key/);
 });
+
+test("card look: color, last 4 digits and logo are validated", async () => {
+  const set = (col, value) => as(ANA, `update accounts set ${col} = $1 where id = $2`, [value, visa.id]);
+  await set("color", "#6D4AFF");
+  await set("last4", "4417");
+  await set("logo", "data:image/png;base64,iVBORw0KGgo=");
+  await set("original_amount", 20000000);
+  await assert.rejects(set("color", "red"), /check constraint/);
+  await assert.rejects(set("last4", "44a7"), /check constraint/);
+  await assert.rejects(set("logo", "https://example.com/logo.png"), /check constraint/, "only uploaded images, never a link to fetch");
+  await assert.rejects(set("logo", "data:image/svg+xml;base64,PHN2Zz4="), /check constraint/, "no SVG: it can carry scripts");
+  await assert.rejects(set("logo", "data:image/png;base64," + "A".repeat(150000)), /check constraint/);
+  await assert.rejects(set("original_amount", 0), /check constraint/);
+  const [row] = await as(ANA, "select color, last4 from accounts where id = $1", [visa.id]);
+  assert.deepEqual([row.color, row.last4], ["#6D4AFF", "4417"]);
+});

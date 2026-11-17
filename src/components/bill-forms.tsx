@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { saveBill, type FormState } from "@/app/actions";
+import { MoneyInput } from "./money-input";
 
 export function BillForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(saveBill, {});
@@ -15,7 +16,7 @@ export function BillForm() {
         </label>
         <label className="field">
           Valor (vacío si cambia cada mes)
-          <input className="input num" name="amount" inputMode="numeric" placeholder="90.000" />
+          <MoneyInput name="amount" placeholder="$ 90.000" />
         </label>
         <label className="field">
           Día de pago

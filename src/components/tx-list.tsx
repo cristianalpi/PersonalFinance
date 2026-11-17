@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { deleteTx } from "@/app/actions";
-import { formatCOP, formatDate, relativeDay, daysBetween, type Tx, type TxKind } from "@/lib/finance";
+import { formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Tx, type TxKind } from "@/lib/finance";
 
 const FILTERS: { value: TxKind | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -11,11 +11,11 @@ const FILTERS: { value: TxKind | "all"; label: string }[] = [
   { value: "income", label: "Ingresos" },
 ];
 
-// The badge's shape and arrow carry the kind; the tint only reinforces it.
-const LOOK: Record<TxKind, { glyph: string; badge: string; sign: string }> = {
-  expense: { glyph: "↗", badge: "bg-debt/15 text-debt", sign: "−" },
-  payment: { glyph: "⇄", badge: "bg-brand/15 text-brand", sign: "−" },
-  income: { glyph: "↙", badge: "bg-savings/15 text-savings", sign: "+" },
+// Each kind has its own stripe, tint and word, so it reads without relying on colour alone.
+const LOOK: Record<TxKind, { label: string; stripe: string; tint: string; sign: string }> = {
+  expense: { label: "Gasto", stripe: "var(--debt)", tint: "bg-debt/15", sign: "−" },
+  payment: { label: "Pago a deuda", stripe: "var(--brand)", tint: "bg-brand/15", sign: "−" },
+  income: { label: "Ingreso", stripe: "var(--savings)", tint: "bg-savings/15", sign: "+" },
 };
 
 const PAGE = 60;
@@ -68,11 +68,14 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0" role="group" aria-label="Filtrar por tipo">
-          {FILTERS.map((f) => (
-            <button key={f.value} type="button" className="chip shrink-0" aria-pressed={filter === f.value} onClick={() => { setFilter(f.value); setLimit(PAGE); }}>
-              {f.label}
-            </button>
-          ))}
+          {FILTERS.map((f) => {
+            const count = f.value === "all" ? txs.length : txs.filter((t) => t.kind === f.value).length;
+            return (
+              <button key={f.value} type="button" className="chip shrink-0" aria-pressed={filter === f.value} onClick={() => { setFilter(f.value); setLimit(PAGE); }}>
+                {f.label} <span className="num opacity-70">{count}</span>
+              </button>
+            );
+          })}
         </div>
         <input
           className="input sm:max-w-60"
@@ -93,10 +96,9 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
             <div key={day.date} className="card rise overflow-hidden p-0 sm:p-0" style={{ "--i": position } as React.CSSProperties}>
               <div className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
                 <h3 className="text-sm font-medium" title={relativeDay(daysBetween(today, day.date))}>{dayLabel(day.date)}</h3>
-                <p className="num text-xs text-ink-3">
-                  {day.inn > 0 && <>+{formatCOP(day.inn)}</>}
-                  {day.inn > 0 && day.out > 0 && " · "}
-                  {day.out > 0 && <>−{formatCOP(day.out)}</>}
+                <p className="flex gap-1.5">
+                  {day.inn > 0 && <span className="pill num bg-savings/15">+{formatCOP(day.inn)}</span>}
+                  {day.out > 0 && <span className="pill num bg-debt/15">−{formatCOP(day.out)}</span>}
                 </p>
               </div>
               <ul>
@@ -105,15 +107,23 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                   return (
                     <li
                       key={tx.id}
-                      className="rise group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-brand/5 sm:px-5"
+                      className="rise group relative flex items-center gap-3 py-3 pl-5 pr-2 transition-colors hover:bg-brand/5 sm:pr-5"
                       style={{ "--i": position++ } as React.CSSProperties}
                     >
-                      <span className={`badge ${look.badge}`} aria-hidden="true">{look.glyph}</span>
+                      <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full" style={{ background: look.stripe }} />
+                      <span className={`badge text-xl ${look.tint}`} aria-hidden="true">
+                        {txIcon(tx)}
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{title(tx)}</p>
-                        <p className="truncate text-sm text-ink-3">{detail(tx)}</p>
+                        <p className="truncate font-semibold">{title(tx)}</p>
+                        <p className="truncate text-sm text-ink-3">
+                          {/* Phones have little room: the stripe, icon and sign already tell the kind there. */}
+                          <span className="font-medium text-ink-2 max-sm:sr-only">{look.label}</span>
+                          <span className="max-sm:hidden">{detail(tx) ? " · " : ""}</span>
+                          {detail(tx)}
+                        </p>
                       </div>
-                      <p className="display num shrink-0 text-lg">
+                      <p className={`display num shrink-0 rounded-xl px-2 py-0.5 text-lg ${tx.kind === "income" ? "bg-savings/15" : ""}`}>
                         {look.sign}
                         {formatCOP(tx.amount)}
                       </p>
