@@ -3,6 +3,7 @@
 import { advise } from "./advice.ts";
 import { debtView } from "./debts.ts";
 import {
+  ADJUSTMENT,
   KIND_LABEL,
   balanceAt,
   formatCOP,
@@ -81,7 +82,7 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, today }:
     const inMonth = txs.filter((x) => x.occurred_on.startsWith(m));
     const income = inMonth.filter((x) => x.kind === "income").reduce((s, x) => s + x.amount, 0);
     const spent = inMonth.filter((x) => x.kind === "expense").reduce((s, x) => s + x.amount, 0);
-    const paid = inMonth.filter((x) => x.kind === "payment").reduce((s, x) => s + x.amount, 0);
+    const paid = inMonth.filter((x) => x.kind === "payment" && x.category !== ADJUSTMENT).reduce((s, x) => s + x.amount, 0);
     const top = spendingByCategory(txs, m)
       .slice(0, 5)
       .map((c) => `${c.category} ${formatCOP(c.amount)}`)

@@ -46,6 +46,9 @@ export const KIND_LABEL: Record<AccountKind, string> = {
   loan: "Crédito",
 };
 
+/** Category of the movements "Actualizar saldo" records. They reconcile; they are not payments the person made. */
+export const ADJUSTMENT = "Ajuste de saldo";
+
 export const CATEGORIES = ["Ocio", "Mercado", "Restaurantes", "Transporte", "Hogar", "Salud", "Suscripciones", "Recibos", "Intereses y cargos", "Otros"];
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -338,7 +341,8 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
   const items: ChecklistItem[] = [];
 
   for (const bill of bills) {
-    if (bill.created_at && bill.created_at.slice(0, 7) > month) continue;
+    // created_at is a UTC timestamp: read it as a date in Bogotá before comparing months.
+    if (bill.created_at && todayInBogota(new Date(bill.created_at)).slice(0, 7) > month) continue;
     const payments = txs.filter((t) => t.bill_id === bill.id && inMonth(t));
     const due = dueIn(bill.due_day);
     const lastUsed = txs.find((t) => t.bill_id === bill.id)?.account_id; // txs come newest first
@@ -358,12 +362,12 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
 
   for (const account of accounts) {
     if (!isDebt(account) || account.opening_date > last) continue;
-    const payments = txs.filter((t) => t.kind === "payment" && t.account_id === account.id && inMonth(t));
+    const payments = txs.filter((t) => t.kind === "payment" && t.account_id === account.id && t.category !== ADJUSTMENT && inMonth(t));
     const owedAtStart = balanceAt(account, txs, addDays(first, -1));
     const owedNow = balanceAt(account, txs, last);
     if (payments.length === 0 && Math.max(owedAtStart, owedNow) <= 0) continue;
     const due = account.due_day ? dueIn(account.due_day) : null;
-    const lastSource = txs.find((t) => t.kind === "payment" && t.account_id === account.id)?.source_account_id ?? null;
+    const lastSource = txs.find((t) => t.kind === "payment" && t.account_id === account.id && t.category !== ADJUSTMENT)?.source_account_id ?? null;
     // Loans have their instalment; cards, the minimum or fixed payment when one is registered.
     const instalment = account.monthly_payment ? Math.min(account.monthly_payment, Math.max(owedNow, 0)) : null;
     items.push({

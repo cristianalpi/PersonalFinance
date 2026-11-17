@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { allowedTxKinds, isDebt, parsePesos, type AccountKind, type TxKind } from "@/lib/finance";
+import { ADJUSTMENT, allowedTxKinds, balanceAt, isDebt, parsePesos, todayInBogota, type Account, type AccountKind, type Tx, type TxKind } from "@/lib/finance";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export interface FormState {
@@ -296,8 +296,13 @@ export async function unmarkPaid(form: FormData) {
   const last = `${month}-${String(new Date(Date.UTC(year, m, 0)).getUTCDate()).padStart(2, "0")}`;
   const id = text(form, "id");
 
-  const query = supabase.from("transactions").delete().gte("occurred_on", `${month}-01`).lte("occurred_on", last);
-  const { error } = form.get("type") === "bill" ? await query.eq("bill_id", id) : await query.eq("account_id", id).eq("kind", "payment");
+  // Find exactly the movements that ticked it; balance adjustments are never touched.
+  const base = supabase.from("transactions").select("id, category").gte("occurred_on", `${month}-01`).lte("occurred_on", last);
+  const { data: rows, error: findError } = form.get("type") === "bill" ? await base.eq("bill_id", id) : await base.eq("account_id", id).eq("kind", "payment");
+  if (findError) throw new Error(`No se pudo deshacer: ${findError.message}`);
+  const ids = (rows ?? []).filter((r) => r.category !== ADJUSTMENT).map((r) => r.id);
+  if (ids.length === 0) return;
+  const { error } = await supabase.from("transactions").delete().in("id", ids);
   if (error) throw new Error(`No se pudo deshacer: ${error.message}`);
   revalidatePath("/", "layout");
 }
@@ -363,14 +368,18 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
 export async function adjustBalance(_prev: FormState, form: FormData): Promise<FormState> {
   const supabase = await signedIn();
   const id = text(form, "id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: "Cuenta no válida." };
   const target = parsePesos(text(form, "balance"));
   if (target === null) return { error: "Escribe el saldo que te muestra el banco." };
-  const current = Number(text(form, "current"));
-  if (!Number.isFinite(current)) return { error: "No se pudo leer el saldo actual." };
+  const occurred_on = text(form, "occurred_on") || todayInBogota();
+  if (!DATE.test(occurred_on)) return { error: "La fecha no es válida." };
 
-  const { data: account } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
+  // The balance is computed here, from the database, as of the chosen date: never trusted from the page.
+  const { data: account } = await supabase.from("accounts").select("*").eq("id", id).maybeSingle();
   if (!account) return { error: "Esa cuenta ya no existe." };
-  const diff = target - current;
+  const { data: moves, error: readError } = await supabase.from("transactions").select("*").or(`account_id.eq.${id},source_account_id.eq.${id}`);
+  if (readError) return { error: `No se pudo leer la cuenta: ${readError.message}` };
+  const diff = target - balanceAt(account as Account, (moves ?? []) as Tx[], occurred_on);
   if (diff === 0) return { message: "El saldo ya estaba al día." };
 
   const debt = isDebt(account);
@@ -380,9 +389,9 @@ export async function adjustBalance(_prev: FormState, form: FormData): Promise<F
     kind,
     account_id: id,
     amount: Math.abs(diff),
-    occurred_on: text(form, "occurred_on") || undefined,
-    category: kind === "expense" ? (debt ? "Intereses y cargos" : "Otros") : null,
-    description: "Ajuste de saldo",
+    occurred_on,
+    category: ADJUSTMENT,
+    description: diff > 0 ? (debt ? "Subió la deuda: intereses o cargos" : "Saldo mayor al registrado") : debt ? "Bajó la deuda" : "Saldo menor al registrado",
   });
   if (error) return { error: `No se pudo ajustar: ${error.message}` };
   revalidatePath("/", "layout");
@@ -401,7 +410,7 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
   const target_date = text(form, "target_date");
   if (!DATE.test(target_date)) return { error: "Elige la fecha límite." };
 
-  let row: Record<string, unknown> = { kind, name, target_date, emoji: text(form, "emoji").slice(0, 8) || null };
+  let row: Record<string, unknown> = { kind, name, target_date, emoji: text(form, "emoji").slice(0, 8) || null, created_on: todayInBogota() };
   if (kind === "save") {
     const target_amount = parsePesos(text(form, "target_amount"));
     if (!target_amount) return { error: "Escribe cuánto quieres juntar." };
@@ -430,7 +439,7 @@ export async function addDeposit(_prev: FormState, form: FormData): Promise<Form
   const amount = parsePesos(text(form, "amount"));
   if (!amount) return { error: "Escribe cuánto abonas." };
   const sign = form.get("withdraw") ? -1 : 1;
-  const { error } = await supabase.from("goal_deposits").insert({ goal_id: text(form, "goal_id"), amount: sign * amount });
+  const { error } = await supabase.from("goal_deposits").insert({ goal_id: text(form, "goal_id"), amount: sign * amount, occurred_on: todayInBogota() });
   if (error) return { error: goalsMissing(error.message) ?? `No se pudo guardar: ${error.message}` };
   revalidatePath("/", "layout");
   return { message: sign > 0 ? "Abono registrado." : "Retiro registrado." };

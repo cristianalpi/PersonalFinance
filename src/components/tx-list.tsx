@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { deleteTx } from "@/app/actions";
-import { formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Tx, type TxKind } from "@/lib/finance";
+import { ADJUSTMENT, formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Tx, type TxKind } from "@/lib/finance";
 
 const FILTERS: { value: TxKind | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -24,9 +24,18 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
   const [filter, setFilter] = useState<TxKind | "all">("all");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
+  // Deleting asks for a second tap on the same row, which expires after a few seconds.
+  const [armed, setArmed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(null), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
 
   const title = (tx: Tx) =>
-    tx.kind === "payment" ? `Pago a ${accountNames[tx.account_id] ?? "cuenta"}` : (tx.description ?? (tx.kind === "income" ? "Ingreso" : (tx.category ?? "Gasto")));
+    tx.category === ADJUSTMENT
+      ? `Ajuste de saldo · ${accountNames[tx.account_id] ?? "cuenta"}`
+      : tx.kind === "payment" ? `Pago a ${accountNames[tx.account_id] ?? "cuenta"}` : (tx.description ?? (tx.kind === "income" ? "Ingreso" : (tx.category ?? "Gasto")));
   const detail = (tx: Tx) =>
     [
       tx.kind === "expense" && tx.description ? tx.category : null,
@@ -127,15 +136,23 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                         {look.sign}
                         {formatCOP(tx.amount)}
                       </p>
-                      <form action={deleteTx} className="shrink-0">
-                        <input type="hidden" name="id" value={tx.id} />
+                      {armed === tx.id ? (
+                        <form action={deleteTx} className="rise shrink-0">
+                          <input type="hidden" name="id" value={tx.id} />
+                          <button className="pill pill-urgent py-1.5 text-xs" aria-label={`Confirmar: borrar ${title(tx)}`}>
+                            Borrar
+                          </button>
+                        </form>
+                      ) : (
                         <button
-                          className="rounded-md px-1.5 py-1 text-sm text-ink-3 transition-opacity hover:text-ink sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
+                          type="button"
+                          onClick={() => setArmed(tx.id)}
+                          className="shrink-0 rounded-md px-1.5 py-1 text-sm text-ink-3 transition-opacity hover:text-ink sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
                           aria-label={`Eliminar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
                         >
                           ✕
                         </button>
-                      </form>
+                      )}
                     </li>
                   );
                 })}

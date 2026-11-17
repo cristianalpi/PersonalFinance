@@ -15,6 +15,7 @@ export function GoalDeposit({ goalId, suggested }: { goalId: string; suggested: 
           + Abonar
         </button>
         {state.message && <span className="rise text-sm font-semibold">✓ {state.message}</span>}
+        {state.error && <p role="alert" className="alert w-full">{state.error}</p>}
       </div>
     );
   }

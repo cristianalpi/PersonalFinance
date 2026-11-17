@@ -15,6 +15,7 @@ import {
   spendingByCategory,
   todayInBogota,
   totals,
+  ADJUSTMENT,
   type Account,
   type Tx,
 } from "./finance.ts";
@@ -209,4 +210,18 @@ test("cash works like savings: holds money, takes income and expenses, can fund 
   assert.deepEqual(totals([billetera], moves), { savings: 350_000, debt: 0, net: 350_000 });
   assert.equal(isDebt(billetera), false);
   assert.deepEqual(allowedTxKinds("cash"), ["income", "expense"]);
+});
+
+test("checklist: a balance adjustment does not tick a debt as paid", () => {
+  const card: Account = { ...tarjeta, due_day: 20, monthly_payment: 300_000 };
+  const adjustment = tx({ account_id: "t", kind: "payment", amount: 120_000, occurred_on: "2026-11-16", category: ADJUSTMENT, description: "Ajuste de saldo" });
+  const [item] = monthlyChecklist([card], [], [adjustment], "2026-11", "2026-11-17");
+  assert.equal(item.paid, false);
+});
+
+test("checklist: a bill created late on the last evening of a month (Bogotá) is not listed for that month", () => {
+  // 31 oct 2026, 9 pm in Bogotá is already 1 nov in UTC.
+  const bill = { id: "b", name: "Gym", amount: 80_000, due_day: 5, category: null, created_at: "2026-11-01T02:00:00Z" };
+  assert.equal(monthlyChecklist([], [bill], [], "2026-10", "2026-10-31").length, 1);
+  assert.equal(monthlyChecklist([], [bill], [], "2026-09", "2026-10-31").length, 0);
 });

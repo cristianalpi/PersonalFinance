@@ -22,7 +22,6 @@ export function BalanceAdjuster({ id, current, debt, today }: { id: string; curr
       ) : (
         <form action={action} className="card rise flex flex-col gap-3">
           <input type="hidden" name="id" value={id} />
-          <input type="hidden" name="current" value={current} />
           <p className="text-sm text-ink-2">
             Aquí dice <span className="num font-semibold text-ink">{formatCOP(current)}</span>. Escribe {debt ? "lo que debes según el banco" : "el saldo que ves en el banco"} y la
             diferencia queda registrada como un ajuste.

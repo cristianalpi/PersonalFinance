@@ -1,6 +1,7 @@
 // Payment recommendations: plain rules over the recorded balances and movements,
 // recomputed on every page load. Each rule states the numbers it is based on.
 import {
+  ADJUSTMENT,
   addDays,
   balanceAt,
   billStatus,
@@ -68,7 +69,7 @@ export function advise(accounts: Account[], txs: Tx[], today: string, bills: Bil
     const days = daysBetween(today, due);
     if (days > 5) continue;
     const since = addDays(today, -25);
-    const paid = txs.some((t) => t.kind === "payment" && t.account_id === account.id && t.occurred_on >= since);
+    const paid = txs.some((t) => t.kind === "payment" && t.account_id === account.id && t.category !== ADJUSTMENT && t.occurred_on >= since);
     if (paid) continue;
     out.push({
       id: `due-${account.id}`,
