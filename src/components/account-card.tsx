@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import { bankKey, cardColor, cardInk, initials, shade } from "@/lib/banks";
 import { BankLogo } from "./bank-logo";
 import { KIND_LABEL, formatCOP, type Account } from "@/lib/finance";
@@ -14,8 +15,11 @@ export function AccountCard({
   balance,
   caption,
   size = "md",
+  morph,
   children,
 }: {
+  /** Account id: the card morphs between list and detail when both pages name it the same. */
+  morph?: string;
   account: CardAccount;
   balance?: number;
   caption?: string;
@@ -39,7 +43,7 @@ export function AccountCard({
     </span>
   );
 
-  return (
+  const card = (
     <div
       // The card keeps a card's proportions but grows when its content needs more room.
       // It must not clip: with overflow hidden, aspect-ratio would cut the bottom (balance, usage bar).
@@ -98,5 +102,12 @@ export function AccountCard({
         {children}
       </div>
     </div>
+  );
+  return morph ? (
+    <ViewTransition name={`card-${morph}`} share="morph" default="none">
+      {card}
+    </ViewTransition>
+  ) : (
+    card
   );
 }

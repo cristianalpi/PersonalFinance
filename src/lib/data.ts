@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { todayInBogota, type Account, type Bill, type Tx } from "./finance";
+import { todayInBogota, type Account, type Bill, type Skip, type Tx } from "./finance";
+import type { Budget, Income } from "./budget";
 import type { Goal, GoalDeposit } from "./goals";
 
 export interface InboxItem {
@@ -39,12 +40,17 @@ export async function loadData() {
     if (data.length < PAGE) break;
   }
 
-  const [bills, inbox, goals, deposits] = await Promise.all([
+  const [bills, inbox, goals, deposits, budgets, skips, incomes] = await Promise.all([
     supabase.from("bills").select("*").order("due_day"),
     supabase.from("wallet_inbox").select("*").order("received_at", { ascending: false }),
     supabase.from("goals").select("*").order("target_date"),
     supabase.from("goal_deposits").select("*").order("occurred_on", { ascending: false }),
+    supabase.from("budgets").select("*").order("category"),
+    supabase.from("checklist_skips").select("*"),
+    supabase.from("incomes").select("*").order("day"),
   ]);
+  // Budgets, skips and incomes arrived with migration 0007.
+  const planMissing = Boolean(budgets.error || skips.error || incomes.error);
   // Goals arrived with migration 0006: until it runs, the rest of the app keeps working.
   const goalsMissing = Boolean(goals.error || deposits.error);
   if (bills.error) throw new Error(`No se pudieron leer los recibos: ${bills.error.message}`);
@@ -60,6 +66,10 @@ export async function loadData() {
     goals: goalsMissing ? [] : (goals.data as Goal[]),
     deposits: goalsMissing ? [] : (deposits.data as GoalDeposit[]),
     goalsReady: !goalsMissing,
+    budgets: planMissing ? [] : (budgets.data as Budget[]),
+    skips: planMissing ? [] : (skips.data as Skip[]),
+    incomes: planMissing ? [] : (incomes.data as Income[]),
+    planReady: !planMissing,
     today: todayInBogota(),
   };
 }

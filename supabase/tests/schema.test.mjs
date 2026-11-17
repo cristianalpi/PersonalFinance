@@ -140,3 +140,26 @@ test("goals: a save goal needs an amount, a payoff goal needs one's own debt", a
   await assert.rejects(as(BETO, "insert into goal_deposits (goal_id, amount) values ($1, 5)", [goal.id]), /row-level security/);
   assert.equal((await as(BETO, "select * from goals")).length, 0);
 });
+
+test("budgets: one per category per user", async () => {
+  await as(ANA, "insert into budgets (category, amount) values ('Ocio', 1200000)");
+  await assert.rejects(as(ANA, "insert into budgets (category, amount) values ('Ocio', 1)"), /duplicate key/);
+  await as(BETO, "insert into budgets (category, amount) values ('Ocio', 10)");
+  assert.equal((await as(ANA, "select * from budgets")).length, 1);
+});
+
+test("skips: one per item and month, month format checked", async () => {
+  await as(ANA, "insert into checklist_skips (item_type, item_id, month, note) values ('debt', $1, '2026-11', 'Rediferida')", [visa.id]);
+  await assert.rejects(as(ANA, "insert into checklist_skips (item_type, item_id, month) values ('debt', $1, '2026-11')", [visa.id]), /duplicate key/);
+  await assert.rejects(as(ANA, "insert into checklist_skips (item_type, item_id, month) values ('debt', $1, '2026-13')", [visa.id]), /check constraint/);
+});
+
+test("incomes: months must be real months; a received income must be one's own", async () => {
+  const [salary] = await as(ANA, "insert into incomes (name, amount, day) values ('Salario', 7000000, 30) returning id");
+  await as(ANA, "insert into incomes (name, amount, day, months) values ('Prima', 3000000, 20, '{6,12}')");
+  await assert.rejects(as(ANA, "insert into incomes (name, day, months) values ('X', 1, '{13}')"), /check constraint/);
+  const [cash] = await as(ANA, "select id from accounts where kind = 'cash' limit 1");
+  await as(ANA, "insert into transactions (account_id, kind, amount, income_id) values ($1, 'income', 7000000, $2)", [cash.id, salary.id]);
+  const [beto] = await as(BETO, "insert into incomes (name, day) values ('Ajeno', 1) returning id");
+  await assert.rejects(as(ANA, "insert into transactions (account_id, kind, amount, income_id) values ($1, 'income', 1, $2)", [cash.id, beto.id]), /row-level security/);
+});

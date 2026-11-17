@@ -16,10 +16,22 @@ export function openAddAccount(kind: AccountKind = "savings") {
  * screens, a sheet rising from the bottom on phones. The form starts fresh
  * each time it opens.
  */
-export function AddAccount({ today, autoOpen = false }: { today: string; autoOpen?: boolean }) {
+export function AddAccount({
+  today,
+  autoOpen = false,
+  defaultKind = "savings",
+  label = "Agregar cuenta",
+  buttonClass = "btn h-12 gap-2 rounded-2xl px-5 text-base",
+}: {
+  today: string;
+  autoOpen?: boolean;
+  defaultKind?: AccountKind;
+  label?: string;
+  buttonClass?: string;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [round, setRound] = useState(0);
-  const [kind, setKind] = useState<AccountKind>("savings");
+  const [kind, setKind] = useState<AccountKind>(defaultKind);
   const [saved, setSaved] = useState<string | null>(null);
 
   const open = useCallback((start: AccountKind = "savings") => {
@@ -41,6 +53,7 @@ export function AddAccount({ today, autoOpen = false }: { today: string; autoOpe
   }, [close]);
 
   useEffect(() => {
+    // The form already starts on defaultKind; only the dialog needs opening.
     if (autoOpen) dialog.current?.showModal();
   }, [autoOpen]);
 
@@ -52,11 +65,11 @@ export function AddAccount({ today, autoOpen = false }: { today: string; autoOpe
 
   return (
     <>
-      <button type="button" onClick={() => open()} className="btn h-12 gap-2 rounded-2xl px-5 text-base">
+      <button type="button" onClick={() => open(defaultKind)} className={buttonClass}>
         <span aria-hidden="true" className="text-xl leading-none">
           +
         </span>
-        Agregar cuenta
+        {label}
       </button>
 
       <dialog

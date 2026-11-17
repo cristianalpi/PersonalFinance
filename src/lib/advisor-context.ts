@@ -1,6 +1,7 @@
 // What the AI advisor knows: a plain-text snapshot of the person's finances,
 // rebuilt from the database on every question. Numbers are computed here, not by the model.
 import { advise } from "./advice.ts";
+import { budgetViews, incomeChecklist, monthPlan, type Budget, type Income } from "./budget.ts";
 import { debtView } from "./debts.ts";
 import {
   ADJUSTMENT,
@@ -16,7 +17,9 @@ import {
   totals,
   type Account,
   type Bill,
+  type Skip,
   type Tx,
+  monthlyChecklist,
 } from "./finance.ts";
 import { goalView, type Goal, type GoalDeposit } from "./goals.ts";
 import { planDebts, simulate } from "./planner.ts";
@@ -27,12 +30,17 @@ interface Snapshot {
   bills: Bill[];
   goals: Goal[];
   deposits: GoalDeposit[];
+  incomes?: Income[];
+  budgets?: Budget[];
+  skips?: Skip[];
   today: string;
 }
 
 const month = (today: string, n: number | null) => (n === null ? "nunca con los pagos actuales" : monthLabel(shiftMonth(today.slice(0, 7), n)));
 
-export function advisorContext({ accounts, txs, bills, goals, deposits, today }: Snapshot): string {
+const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+export function advisorContext({ accounts, txs, bills, goals, deposits, incomes = [], budgets = [], skips = [], today }: Snapshot): string {
   const lines: string[] = [];
   const t = totals(accounts, txs);
   lines.push(`Fecha de hoy: ${today} (Colombia). Montos en pesos colombianos.`);
@@ -77,6 +85,30 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, today }:
   }
 
   const months = lastMonths(today, 3);
+  const current = today.slice(0, 7);
+  if (incomes.length) {
+    lines.push("\n## Ingresos programados");
+    for (const i of incomes)
+      lines.push(`- ${i.name}: ${i.amount ? formatCOP(i.amount) : "valor variable"}, día ${i.day}${i.months ? `, solo en ${i.months.map((m) => MONTH_SHORT[m - 1]).join(", ")}` : ", cada mes"}`);
+  }
+  if (budgets.length) {
+    lines.push("\n## Presupuestos de este mes (gastado / tope)");
+    for (const b of budgetViews(budgets, txs, current, today))
+      lines.push(`- ${b.category}: ${formatCOP(b.spent)} de ${formatCOP(b.amount)}${b.status === "over" ? " (pasado)" : b.status === "watch" ? " (va rápido)" : ""}`);
+  }
+  const monthSkips = skips.filter((k) => k.month === current);
+  if (monthSkips.length) {
+    const names = Object.fromEntries([...accounts.map((a) => [a.id, a.name]), ...bills.map((b) => [b.id, b.name]), ...incomes.map((i) => [i.id, i.name])]);
+    lines.push("\n## Omitidos este mes");
+    for (const k of monthSkips) lines.push(`- ${names[k.item_id] ?? "ítem"}${k.note ? `: ${k.note}` : ""}`);
+  }
+  if (incomes.length) {
+    const plan = monthPlan(incomeChecklist(incomes, txs, current, today, skips), monthlyChecklist(accounts, bills, txs, current, today, skips), budgets);
+    lines.push(
+      `\nReparto del mes (calculado por la app): ingresos ${formatCOP(plan.income)} − obligaciones ${formatCOP(plan.obligations)}${plan.unknownObligations ? ` (+${plan.unknownObligations} de valor variable)` : ""} − presupuestos ${formatCOP(plan.budgets)} = ${plan.free >= 0 ? "libre" : "faltante"} ${formatCOP(Math.abs(plan.free))}.`,
+    );
+  }
+
   lines.push("\n## Últimos 3 meses (según lo registrado)");
   for (const m of months) {
     const inMonth = txs.filter((x) => x.occurred_on.startsWith(m));

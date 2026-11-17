@@ -1,12 +1,13 @@
 import { cookies, headers } from "next/headers";
-import { clearWalletName } from "@/app/actions";
+import { clearWalletName, signOut } from "@/app/actions";
+import { InstallCard } from "@/components/install-card";
 import { ThemePicker } from "@/components/theme-toggle";
 import { TokenCard } from "@/components/token-card";
 import { loadData } from "@/lib/data";
 import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 
 export default async function SettingsPage() {
-  const { supabase, accounts } = await loadData();
+  const { supabase, accounts, user } = await loadData();
   const { data: tokens } = await supabase.from("api_tokens").select("kind");
   const has = (kind: string) => Boolean(tokens?.some((t) => t.kind === kind));
   const h = await headers();
@@ -16,6 +17,8 @@ export default async function SettingsPage() {
   return (
     <>
       <h1 className="display pt-2 text-3xl">Ajustes</h1>
+
+      <InstallCard />
 
       <section className="card flex flex-col gap-4">
         <div>
@@ -84,6 +87,15 @@ export default async function SettingsPage() {
         <p className="text-sm text-ink-3">
           El calendario lleva nombres y valores fijos, no tus saldos. Quien tenga la dirección puede verlo: si se filtra, genera una nueva.
         </p>
+      </section>
+      <section className="card flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="display text-2xl">Sesión</h2>
+          <p className="text-sm text-ink-3">Entraste como {user.email ?? "tú"}.</p>
+        </div>
+        <form action={signOut}>
+          <button className="btn-quiet">Cerrar sesión</button>
+        </form>
       </section>
     </>
   );

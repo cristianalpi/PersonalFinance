@@ -39,11 +39,11 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <div className="flex flex-col gap-3 pt-2">
-        <Link href={debt ? "/deudas" : "/cuentas"} className="text-sm font-medium text-brand">
-          {debt ? "Deudas" : "Cuentas"}
+        <Link href={debt ? "/deudas" : "/"} className="text-sm font-medium text-brand">
+          ‹ {debt ? "Deudas" : "Inicio"}
         </Link>
         <h1 className="sr-only">{account.name}</h1>
-        <AccountCard account={account} balance={Math.max(0, balance)} caption={debt ? "Lo que debes hoy" : "Lo que tienes hoy"} size="lg">
+        <AccountCard account={account} balance={Math.max(0, balance)} caption={debt ? "Lo que debes hoy" : "Lo que tienes hoy"} size="lg" morph={account.id}>
           {account.kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
         </AccountCard>
         <BalanceAdjuster id={account.id} current={balance} debt={debt} today={today} />
@@ -83,7 +83,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
       <OpenEditorFromHash />
 
       <h2 className="display text-2xl">Movimientos de esta cuenta</h2>
-      <TxList txs={own} accountNames={Object.fromEntries(accounts.map((a) => [a.id, a.name]))} today={today} />
+      <TxList txs={own} accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
     </>
   );
 }

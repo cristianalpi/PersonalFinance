@@ -1,37 +1,24 @@
 import { AdvisorChat } from "@/components/advisor-chat";
-import { PlanSimulator } from "@/components/plan-simulator";
-import { cardColor } from "@/lib/banks";
+import Link from "next/link";
 import { loadData } from "@/lib/data";
-import { planDebts } from "@/lib/planner";
 
 export default async function AdvisorPage() {
-  const { accounts, txs, today } = await loadData();
-  const debts = planDebts(accounts, txs);
-  const colors = Object.fromEntries(accounts.map((a) => [a.id, cardColor(a)]));
+  await loadData(); // signed-in check
   const aiReady = Boolean(process.env.ANTHROPIC_API_KEY);
 
   return (
     <>
       <div className="pt-2">
-        <h1 className="display text-3xl">Asesor</h1>
-        <p className="text-sm text-ink-3">Planes para pagar tus deudas y organizar tus cuentas, con tus números.</p>
-      </div>
-
-      {debts.length > 0 ? (
-        <PlanSimulator debts={debts} colors={colors} startMonth={today.slice(0, 7)} />
-      ) : (
-        <section className="card">
-          <p className="display text-xl">No tienes deudas con saldo</p>
-          <p className="text-ink-2">Cuando registres tarjetas o créditos, aquí verás cuándo quedas libre de cada una.</p>
-        </section>
-      )}
-
-      <div>
-        <h2 className="display text-2xl">Pregúntale a la IA ✨</h2>
+        <h1 className="display text-3xl">Asesor ✨</h1>
         <p className="text-sm text-ink-3">
-          Usa tus saldos, tasas, pagos fijos, metas y la simulación de arriba. Es una guía, no asesoría financiera certificada.
+          Pregúntale cómo pagar tus deudas, cuánto ahorrar para una meta o cómo repartir el salario. Usa tus saldos, tasas, pagos fijos, ingresos, presupuestos y metas. Es una guía, no asesoría financiera certificada. Para simular abonos, mira el{" "}
+          <Link href="/deudas#plan" className="font-medium text-brand">
+            plan de pagos
+          </Link>
+          .
         </p>
       </div>
+
       {aiReady ? (
         <AdvisorChat />
       ) : (

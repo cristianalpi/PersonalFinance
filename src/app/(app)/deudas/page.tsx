@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { AccountCard } from "@/components/account-card";
+import { AddAccount } from "@/components/add-account";
+import { AddTile } from "@/components/add-tile";
+import { PlanSimulator } from "@/components/plan-simulator";
+import { planDebts } from "@/lib/planner";
 import { UsageBar } from "@/components/usage-bar";
 import { cardColor } from "@/lib/banks";
 import { loadData } from "@/lib/data";
@@ -21,7 +25,7 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
   return (
     <li className="card rise flex flex-col gap-4" style={{ "--i": index } as React.CSSProperties}>
       <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-0.5" aria-label={`Ver ${account.name}`}>
-        <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} />
+        <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} morph={account.id} />
       </Link>
 
       <Link href={`/cuentas/${account.id}#saldo`} className="-mt-2 self-start text-sm font-medium text-brand">
@@ -97,8 +101,11 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
   );
 }
 
-export default async function DebtsPage() {
+export default async function DebtsPage({ searchParams }: { searchParams: Promise<{ nueva?: string }> }) {
   const { accounts, txs, today } = await loadData();
+  const addNow = (await searchParams).nueva === "1";
+  const planned = planDebts(accounts, txs);
+  const colors = Object.fromEntries(accounts.map((a) => [a.id, cardColor(a)]));
   const views = accounts.filter(isDebt).map((a) => debtView(a, txs, today));
   const owing = views.filter((v) => v.balance > 0);
   const total = owing.reduce((sum, v) => sum + v.balance, 0);
@@ -114,15 +121,16 @@ export default async function DebtsPage() {
       <section className="card max-w-xl">
         <h1 className="display text-3xl">Sin deudas registradas</h1>
         <p className="mt-2 text-ink-2">Cuando agregues una tarjeta de crédito o un crédito, aquí verás cuánto debes, cuánto cupo usas y cuánto te falta.</p>
-        <Link href="/cuentas?nueva=1" className="btn mt-4">
-          Agregar una tarjeta o crédito
-        </Link>
+        <div className="mt-4">
+          <AddAccount today={today} autoOpen={addNow} defaultKind="credit_card" label="Agregar una tarjeta o crédito" />
+        </div>
       </section>
     );
   }
 
   return (
     <>
+      <AddAccount today={today} autoOpen={addNow} defaultKind="credit_card" label="Agregar deuda" buttonClass="btn-quiet h-10 gap-1.5 self-end px-4 text-sm -mb-3" />
       <section className="card" aria-labelledby="debts-total">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -169,6 +177,9 @@ export default async function DebtsPage() {
             {cards.map((v, i) => (
               <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={i} />
             ))}
+            <li className="min-h-40">
+              <AddTile kind="credit_card" />
+            </li>
           </ul>
         </section>
       )}
@@ -182,8 +193,17 @@ export default async function DebtsPage() {
             {loans.map((v, i) => (
               <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={cards.length + i} />
             ))}
+            <li className="min-h-40">
+              <AddTile kind="loan" />
+            </li>
           </ul>
         </section>
+      )}
+
+      {planned.length > 0 && (
+        <div id="plan" className="scroll-mt-4">
+          <PlanSimulator debts={planned} colors={colors} startMonth={today.slice(0, 7)} />
+        </div>
       )}
 
       <p className="text-xs text-ink-3">

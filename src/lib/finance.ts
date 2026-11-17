@@ -37,6 +37,17 @@ export interface Tx {
   occurred_on: string;
   source: string;
   bill_id: string | null;
+  /** Set when the movement records a scheduled income as received. */
+  income_id?: string | null;
+}
+
+/** «Este mes no aplica» for a bill, a debt instalment or an income. */
+export interface Skip {
+  id: string;
+  item_type: "bill" | "debt" | "income";
+  item_id: string;
+  month: string;
+  note: string | null;
 }
 
 export const KIND_LABEL: Record<AccountKind, string> = {
@@ -313,7 +324,8 @@ export function relativeDay(days: number): string {
 }
 
 export interface ChecklistItem {
-  type: "bill" | "debt";
+  /** «income» rows come from incomeChecklist: «paid» then means received. */
+  type: "bill" | "debt" | "income";
   id: string;
   name: string;
   /** Due date inside the month, or null for a debt with no payment day. */
@@ -323,6 +335,8 @@ export interface ChecklistItem {
   paid: boolean;
   paidAmount: number;
   overdue: boolean;
+  /** Marked as not applying this month (a rescheduled card, a paused bill). */
+  skipped: Skip | null;
   /** Enough to record the payment in one tap; null when the amount or the account must be asked. */
   quick: { amount: number; accountId: string | null } | null;
 }
@@ -332,7 +346,8 @@ export interface ChecklistItem {
  * that owes something. Nothing is stored per month: an item is ticked when a
  * movement dated in that month pays it, so each new month starts unticked.
  */
-export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], month: string, today: string): ChecklistItem[] {
+export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], month: string, today: string, skips: Skip[] = []): ChecklistItem[] {
+  const skipOf = (type: Skip["item_type"], id: string) => skips.find((s) => s.item_type === type && s.item_id === id && s.month === month) ?? null;
   const first = `${month}-01`;
   const last = monthEnd(month);
   const inMonth = (t: Tx) => t.occurred_on >= first && t.occurred_on <= last;
@@ -355,7 +370,8 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
       expected: bill.amount,
       paid: payments.length > 0,
       paidAmount: payments.reduce((sum, t) => sum + t.amount, 0),
-      overdue: payments.length === 0 && due < today,
+      overdue: payments.length === 0 && due < today && !skipOf("bill", bill.id),
+      skipped: payments.length === 0 ? skipOf("bill", bill.id) : null,
       quick: bill.amount && accountId ? { amount: bill.amount, accountId } : null,
     });
   }
@@ -378,7 +394,8 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
       expected: instalment,
       paid: payments.length > 0,
       paidAmount: payments.reduce((sum, t) => sum + t.amount, 0),
-      overdue: payments.length === 0 && due !== null && due < today,
+      overdue: payments.length === 0 && due !== null && due < today && !skipOf("debt", account.id),
+      skipped: payments.length === 0 ? skipOf("debt", account.id) : null,
       quick: instalment ? { amount: instalment, accountId: accounts.some((a) => a.id === lastSource) ? lastSource : null } : null,
     });
   }

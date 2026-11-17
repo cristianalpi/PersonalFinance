@@ -1,22 +1,31 @@
 import Link from "next/link";
-import { deleteBill } from "@/app/actions";
-import { BillForm } from "@/components/bill-forms";
+import { deleteBill, deleteIncome } from "@/app/actions";
+import { BillForm, IncomeForm } from "@/components/bill-forms";
 import { ChecklistRow } from "@/components/checklist-row";
+import { MonthPlanCard } from "@/components/month-plan";
+import { incomeChecklist, incomeRow, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
 import { formatCOP, monthName, monthlyChecklist, shiftMonth } from "@/lib/finance";
 
+const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
-  const { accounts, txs, bills, today } = await loadData();
+  const { accounts, txs, bills, incomes, budgets, skips, planReady, today } = await loadData();
   const current = today.slice(0, 7);
   const asked = (await searchParams).mes;
   // Only the current month and the past: future months have nothing to tick yet.
   const month = asked && /^\d{4}-(0[1-9]|1[0-2])$/.test(asked) && asked <= current ? asked : current;
   const editable = month === current;
 
-  const items = monthlyChecklist(accounts, bills, txs, month, today);
-  const done = items.filter((i) => i.paid).length;
-  const pendingAmount = items.filter((i) => !i.paid).reduce((sum, i) => sum + (i.expected ?? 0), 0);
-  const variable = items.filter((i) => !i.paid && !i.expected).length;
+  const items = monthlyChecklist(accounts, bills, txs, month, today, skips);
+  const incomeItems = incomeChecklist(incomes, txs, month, today, skips);
+  const plan = monthPlan(incomeItems, items, budgets);
+
+  const counted = items.filter((i) => !i.skipped);
+  const done = counted.filter((i) => i.paid).length;
+  const skippedCount = items.length - counted.length;
+  const pendingAmount = counted.filter((i) => !i.paid).reduce((sum, i) => sum + (i.expected ?? 0), 0);
+  const variable = counted.filter((i) => !i.paid && !i.expected).length;
 
   const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
   const savings = accounts.filter((a) => a.kind === "savings" || a.kind === "cash").map(({ id, name }) => ({ id, name }));
@@ -46,10 +55,34 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         </div>
         <p className="mt-1 text-sm text-ink-3">
           {editable
-            ? "Tus pagos obligatorios del mes. Al marcar uno se registra el pago; el primer día de cada mes la lista vuelve a empezar."
+            ? "Lo que entra y lo que tienes que pagar este mes. Al marcar uno se registra el movimiento; cada mes la lista vuelve a empezar."
             : "Mes cerrado: así quedó la lista."}
         </p>
       </div>
+
+      {planReady && (incomes.length > 0 || budgets.length > 0) && <MonthPlanCard plan={plan} />}
+
+      {incomeItems.length > 0 && (
+        <section className="card" aria-label="Ingresos del mes">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="display text-2xl">Ingresos</h2>
+            <p className="text-sm text-ink-3">
+              {plan.incomePending > 0 ? (
+                <>
+                  Por llegar <span className="num font-medium text-ink">{formatCOP(plan.incomePending)}</span>
+                </>
+              ) : (
+                "Todo recibido"
+              )}
+            </p>
+          </div>
+          <ul className="mt-2 divide-y divide-line">
+            {incomeItems.map((i) => (
+              <ChecklistRow key={`income-${i.id}`} item={incomeRow(i)} month={month} today={today} editable={editable} accounts={savings} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       {items.length === 0 ? (
         <section className="card">
@@ -60,10 +93,10 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         <section className="card" aria-label="Lista de pagos del mes">
           <div className="flex items-baseline justify-between gap-3">
             <p className="display text-2xl">
-              {done} de {items.length} pagados
+              {done} de {counted.length} pagados
             </p>
             <p className="text-right text-sm text-ink-2">
-              {done === items.length ? (
+              {done === counted.length ? (
                 <span className="pill pill-idea text-sm">🎉 Mes al día</span>
               ) : (
                 <>
@@ -73,9 +106,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
               )}
             </p>
           </div>
-          <div className="track mt-3 h-3" role="img" aria-label={`${done} de ${items.length} pagados`}>
-            <div className="fill fill-have" style={{ width: `${(done / items.length) * 100}%` }} />
+          <div className="track mt-3 h-3" role="img" aria-label={`${done} de ${counted.length} pagados`}>
+            <div className="fill fill-have" style={{ width: `${counted.length ? (done / counted.length) * 100 : 100}%` }} />
           </div>
+          {skippedCount > 0 && (
+            <p className="mt-2 text-xs text-ink-3">
+              {skippedCount} omitido{skippedCount > 1 ? "s" : ""} este mes, no cuenta{skippedCount > 1 ? "n" : ""} en el total.
+            </p>
+          )}
           <ul className="mt-3 divide-y divide-line">
             {items.map((item) => (
               <ChecklistRow
@@ -93,18 +131,41 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
       {editable && (
         <>
-          <details className="group" open={bills.length === 0}>
-            <summary className="btn-quiet inline-flex cursor-pointer list-none">Agregar un pago fijo</summary>
-            <div className="mt-3">
-              <BillForm />
-            </div>
-          </details>
+          <div className="flex flex-wrap gap-2">
+            <details className="group w-full" open={bills.length === 0}>
+              <summary className="btn-quiet inline-flex cursor-pointer list-none">Agregar un pago fijo</summary>
+              <div className="mt-3">
+                <BillForm />
+              </div>
+            </details>
+            {planReady && (
+              <details className="group w-full" open={incomes.length === 0 && bills.length > 0}>
+                <summary className="btn-quiet inline-flex cursor-pointer list-none">Programar un ingreso</summary>
+                <div className="mt-3">
+                  <IncomeForm accounts={savings} />
+                </div>
+              </details>
+            )}
+          </div>
 
-          {bills.length > 0 && (
+          {(bills.length > 0 || incomes.length > 0) && (
             <section className="card">
-              <h2 className="display text-2xl">Pagos fijos registrados</h2>
-              <p className="text-sm text-ink-3">Recibos, arriendo, suscripciones. Las tarjetas y créditos se administran en Cuentas.</p>
+              <h2 className="display text-2xl">Programados</h2>
+              <p className="text-sm text-ink-3">Se repiten cada mes. Las tarjetas y créditos se administran en Deudas.</p>
               <ul className="mt-2 divide-y divide-line">
+                {incomes.map((i) => (
+                  <li key={i.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                    <span>
+                      <span className="pill pill-idea mr-1.5">Ingreso</span>
+                      <span className="font-medium">{i.name}</span>, día {i.day}
+                      {i.months ? ` (${i.months.map((m) => MONTH_SHORT[m - 1]).join(", ")})` : ""}, {i.amount ? formatCOP(i.amount) : "valor variable"}
+                    </span>
+                    <form action={deleteIncome}>
+                      <input type="hidden" name="id" value={i.id} />
+                      <button className="text-ink-3 hover:text-ink">Eliminar</button>
+                    </form>
+                  </li>
+                ))}
                 {bills.map((bill) => (
                   <li key={bill.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <span>

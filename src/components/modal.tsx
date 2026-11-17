@@ -61,3 +61,36 @@ export function Modal({
     </>
   );
 }
+
+/** The same sheet, opened by its parent: for actions started from a list row (edit, details). */
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const close = useCallback(() => dialog.current?.close(), []);
+
+  useEffect(() => {
+    const el = dialog.current;
+    if (!el) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  useEffect(() => {
+    const el = dialog.current;
+    el?.addEventListener("close", onClose);
+    return () => el?.removeEventListener("close", onClose);
+  }, [onClose]);
+
+  return (
+    <dialog ref={dialog} aria-label={title} className="sheet" onClick={(e) => e.target === e.currentTarget && close()}>
+      <div className="flex flex-col gap-4 p-5 sm:p-7">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="display text-2xl">{title}</h2>
+          <button type="button" onClick={close} className="btn-quiet size-10 p-0 text-lg" aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <CloseContext.Provider value={close}>{open && children}</CloseContext.Provider>
+      </div>
+    </dialog>
+  );
+}

@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { DashboardSkeleton } from "@/components/skeletons";
 import { BalanceBeam } from "@/components/balance-beam";
 import { BalanceChart, HAVE_OWE } from "@/components/balance-chart";
-import { DebtDescent } from "@/components/debt-descent";
+import { AccountShelf } from "@/components/account-shelf";
+import { AddAccount } from "@/components/add-account";
+import { MonthPlanCard } from "@/components/month-plan";
 import { Ring } from "@/components/ring";
-import { Sparkline } from "@/components/sparkline";
 import { advise, type Advice } from "@/lib/advice";
+import { incomeChecklist, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
-import { balanceAt, billStatus, daysBetween, formatCOP, isDebt, monthName, monthlyChecklist, monthlySeries, nextDueDate, relativeDay, spendingByCategory, totals } from "@/lib/finance";
+import { balanceAt, daysBetween, formatCOP, isDebt, monthName, monthlyChecklist, monthlySeries, relativeDay, spendingByCategory, totals } from "@/lib/finance";
 
 const LEVEL = { urgent: "Urgente", warn: "Atención", idea: "Idea" };
 // Phones swipe through the cards sideways; wider screens lay them out in two columns.
@@ -23,8 +27,24 @@ const adviceCard = (item: Advice) => (
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-export default async function Dashboard() {
-  const { accounts, txs, bills, inbox, today } = await loadData();
+type Props = { searchParams: Promise<{ nueva?: string }> };
+
+/**
+ * The skeleton lives here rather than in a loading.tsx at the group level: such
+ * a file would also cover account detail pages, and a detail page that shows a
+ * skeleton first cannot morph its card in from the list.
+ */
+export default function Page(props: Props) {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <Dashboard {...props} />
+    </Suspense>
+  );
+}
+
+async function Dashboard({ searchParams }: Props) {
+  const { accounts, txs, bills, inbox, incomes, budgets, skips, planReady, today } = await loadData();
+  const addNow = (await searchParams).nueva === "1";
 
   if (accounts.length === 0) {
     return (
@@ -33,9 +53,9 @@ export default async function Dashboard() {
         <p className="mt-3 text-ink-2">
           Registra tus cuentas de ahorros, tarjetas y créditos con el saldo de hoy. Desde ahí, cada pago y cada gasto mueve el balance.
         </p>
-        <Link href="/cuentas?nueva=1" className="btn mt-5">
-          Agregar la primera cuenta
-        </Link>
+        <div className="mt-5">
+          <AddAccount today={today} autoOpen={addNow} label="Agregar la primera cuenta" />
+        </div>
       </section>
     );
   }
@@ -50,31 +70,20 @@ export default async function Dashboard() {
   const spent = spending.reduce((sum, c) => sum + c.amount, 0);
   const advice = advise(accounts, txs, today, bills);
   const debts = accounts.filter(isDebt);
-  const savings = accounts.filter((a) => !isDebt(a));
-
-  const upcoming = [
-    ...debts
-      .filter((a) => a.due_day && balanceAt(a, txs) > 0)
-      .map((a) => {
-        const date = nextDueDate(a.due_day!, today);
-        return { id: a.id, name: a.name, date, days: daysBetween(today, date), amount: a.monthly_payment ?? balanceAt(a, txs), paid: false };
-      }),
-    ...bills.map((b) => {
-      const status = billStatus(b, txs, today);
-      return { id: b.id, name: b.name, date: status.date, days: status.days, amount: b.amount, paid: status.paidThisMonth };
-    }),
-  ].sort((a, b) => a.date.localeCompare(b.date));
 
   const month = today.slice(0, 7);
-  const checklist = monthlyChecklist(accounts, bills, txs, month, today);
+  const checklist = monthlyChecklist(accounts, bills, txs, month, today, skips).filter((i) => !i.skipped);
   const paid = checklist.filter((i) => i.paid).length;
+  // What is still to pay this month, soonest first.
+  const upcoming = checklist.filter((i) => !i.paid).slice(0, 4);
+  const plan = planReady && incomes.length > 0 ? monthPlan(incomeChecklist(incomes, txs, month, today, skips), checklist, budgets) : null;
   const cardLimit = debts.reduce((sum, a) => sum + (a.credit_limit ?? 0), 0);
   const cardUsed = debts.filter((a) => a.credit_limit).reduce((sum, a) => sum + Math.max(0, balanceAt(a, txs)), 0);
 
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-6 lg:gap-5">
-        <div className="lg:col-span-4">
+        <div className="min-w-0 lg:col-span-4">
           <BalanceBeam savings={now.savings} debt={now.debt} previousNet={previous ? previous.net : null} />
         </div>
 
@@ -142,6 +151,16 @@ export default async function Dashboard() {
         </section>
       )}
 
+      <section aria-labelledby="money-title">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="money-title" className="display text-2xl">
+            Tu plata
+          </h2>
+          <AddAccount today={today} autoOpen={addNow} label="Agregar" buttonClass="btn-quiet h-10 gap-1.5 px-4 text-sm" />
+        </div>
+        <AccountShelf kinds={["savings", "cash"]} accounts={accounts} txs={txs} title="Tu plata" showTitle={false} />
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-6 lg:gap-5">
         <section className="card lg:col-span-4" aria-labelledby="trend-title">
           <h2 id="trend-title" className="display text-2xl">
@@ -181,56 +200,51 @@ export default async function Dashboard() {
               Ver todos
             </Link>
           </div>
-          {upcoming.length === 0 ? (
+          {checklist.length === 0 ? (
             <p className="mt-2 text-sm text-ink-3">Agrega el día de pago a tus tarjetas y créditos, o registra tus pagos fijos, para verlos aquí.</p>
+          ) : upcoming.length === 0 ? (
+            <p className="mt-3 flex items-center gap-2 font-semibold">
+              <span aria-hidden="true">🎉</span> Todo pagado en {monthName(month)}
+            </p>
           ) : (
             <ol className="mt-4 flex flex-col gap-3">
-              {upcoming.slice(0, 6).map((item) => {
-                const late = item.days < 0 && !item.paid;
+              {upcoming.map((item) => {
+                const late = item.overdue;
+                const days = item.due ? daysBetween(today, item.due) : null;
                 return (
-                  <li key={item.id} className="flex items-center gap-3">
+                  <li key={`${item.type}-${item.id}`} className="flex items-center gap-3">
                     {/* A calendar leaf: the date is the thing to read first. */}
                     <span
                       className={`flex w-12 shrink-0 flex-col items-center rounded-2xl py-1.5 leading-tight ${late ? "text-white" : "bg-brand/12 text-ink"}`}
                       style={late ? { background: "linear-gradient(135deg, var(--debt), var(--debt-2))" } : undefined}
                     >
-                      <span className="display text-lg">{Number(item.date.slice(8, 10))}</span>
-                      <span className="text-[11px] font-medium">{MONTHS[Number(item.date.slice(5, 7)) - 1]}</span>
+                      <span className="display text-lg">{item.due ? Number(item.due.slice(8, 10)) : "—"}</span>
+                      <span className="text-[11px] font-medium">{item.due ? MONTHS[Number(item.due.slice(5, 7)) - 1] : "sin día"}</span>
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{item.name}</p>
-                      <p className={`text-sm ${late ? "font-medium text-ink" : "text-ink-3"}`}>{item.paid ? "Pagado este mes" : relativeDay(item.days)}</p>
+                      <p className={`text-sm ${late ? "font-medium text-ink" : "text-ink-3"}`}>{days === null ? "Sin día de pago" : relativeDay(days)}</p>
                     </div>
-                    <p className="num shrink-0 text-sm font-medium">{item.amount ? formatCOP(item.amount) : "Variable"}</p>
+                    <p className="num shrink-0 text-sm font-medium">{item.expected ? formatCOP(item.expected) : "Variable"}</p>
                   </li>
                 );
               })}
             </ol>
           )}
-          <p className="mt-4 text-xs text-ink-3">En créditos se muestra la cuota; en tarjetas, la deuda total.</p>
+          {checklist.length - paid > upcoming.length && (
+            <p className="mt-4 text-xs text-ink-3">Y {checklist.length - paid - upcoming.length} más en la lista de pagos.</p>
+          )}
         </section>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-6 lg:gap-5">
-        {debts.length > 0 && (
-          <section className="card lg:col-span-3" aria-labelledby="debts-title">
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 id="debts-title" className="display text-2xl">
-                Tus deudas, bajando
-              </h2>
-              <Link href="/deudas" className="text-sm font-medium text-brand">
-                Ver deudas
-              </Link>
-            </div>
-            <ul className="mt-1 divide-y divide-line">
-              {debts.map((account) => (
-                <DebtDescent key={account.id} account={account} balance={balanceAt(account, txs)} />
-              ))}
-            </ul>
-          </section>
+        {plan && (
+          <div className="lg:col-span-3">
+            <MonthPlanCard plan={plan} compact />
+          </div>
         )}
 
-        <section className={`card ${debts.length > 0 ? "lg:col-span-3" : "lg:col-span-6"}`} aria-labelledby="spend-title">
+        <section className={`card ${plan ? "lg:col-span-3" : "lg:col-span-6"}`} aria-labelledby="spend-title">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="spend-title" className="display text-2xl">
               En qué se fue
@@ -261,26 +275,6 @@ export default async function Dashboard() {
         </section>
       </div>
 
-      {savings.length > 0 && (
-        <section aria-labelledby="savings-title">
-          <h2 id="savings-title" className="display text-2xl">
-            Donde está tu plata
-          </h2>
-          <ul className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {savings.map((account) => (
-              <li key={account.id}>
-                <Link href={`/cuentas/${account.id}`} className="card flex items-center justify-between gap-3 transition-transform hover:-translate-y-0.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-ink-2">{account.name}</p>
-                    <p className="display text-2xl">{formatCOP(balanceAt(account, txs))}</p>
-                  </div>
-                  <Sparkline values={series.map((p) => p.byAccount[account.id])} color="var(--savings)" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </>
   );
 }

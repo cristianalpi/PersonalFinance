@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useOptimistic, useState, useTransition } from "react";
-import { markPaid, unmarkPaid } from "@/app/actions";
+import { markPaid, skipItem, unmarkPaid, unskipItem } from "@/app/actions";
 import { daysBetween, formatCOP, formatDate, relativeDay, type ChecklistItem } from "@/lib/finance";
 import { MoneyInput } from "./money-input";
 
@@ -35,7 +35,9 @@ function buzz() {
 export function ChecklistRow({ item, month, today, editable, accounts }: Props) {
   const [paid, setOptimisticPaid] = useOptimistic(item.paid);
   const [pending, startTransition] = useTransition();
-  const [panel, setPanel] = useState<"none" | "form" | "confirm">("none");
+  const [panel, setPanel] = useState<"none" | "form" | "confirm" | "skip" | "unskip">("none");
+  const income = item.type === "income";
+  const skipped = Boolean(item.skipped) && !paid;
   const [celebrate, setCelebrate] = useState(false);
   const [undoable, setUndoable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,29 +101,62 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
     });
   }
 
+  function skip(form: FormData) {
+    setError(null);
+    setPanel("none");
+    startTransition(async () => {
+      const result = await skipItem({}, form);
+      if (result.error) setError(result.error);
+    });
+  }
+
+  function unskip() {
+    setError(null);
+    setPanel("none");
+    startTransition(async () => {
+      const form = new FormData();
+      form.set("id", item.skipped!.id);
+      try {
+        await unskipItem(form);
+      } catch {
+        setError("No se pudo volver a incluir. Intenta de nuevo.");
+      }
+    });
+  }
+
   function onCheck() {
     if (!editable || pending) return;
+    if (skipped) return setPanel(panel === "unskip" ? "none" : "unskip");
     if (paid) return setPanel(panel === "confirm" ? "none" : "confirm");
     if (item.quick) return quickPay();
     setPanel(panel === "form" ? "none" : "form");
   }
 
   const days = item.due ? daysBetween(today, item.due) : null;
+  const doneWord = income ? "Recibido" : "Pagado";
   const status = paid
     ? celebrate
-      ? "¡Pagado!"
-      : `Pagado${item.paidAmount ? `: ${formatCOP(item.paidAmount)}` : ""}`
-    : item.due === null
+      ? `¡${doneWord}!`
+      : `${doneWord}${item.paidAmount ? `: ${formatCOP(item.paidAmount)}` : ""}`
+    : skipped
+      ? `Omitido este mes${item.skipped!.note ? `: ${item.skipped!.note}` : ""}`
+      : item.due === null
       ? "Sin día de pago"
       : !editable
-        ? `No se registró pago (vencía el ${formatDate(item.due)})`
+        ? income
+          ? `No se registró (llegaba el ${formatDate(item.due)})`
+          : `No se registró pago (vencía el ${formatDate(item.due)})`
         : `${formatDate(item.due)}, ${relativeDay(days!)}`;
 
-  const label = paid
-    ? `${item.name}: pagado. Desmarcar`
-    : item.quick
-      ? `Marcar ${item.name} como pagado por ${formatCOP(item.quick.amount)}`
-      : `Marcar ${item.name} como pagado`;
+  const doneLower = doneWord.toLowerCase();
+  const label = skipped
+    ? `${item.name}: omitido este mes. Volver a incluir`
+    : paid
+      ? `${item.name}: ${doneLower}. Desmarcar`
+      : item.quick
+        ? `Marcar ${item.name} como ${doneLower} por ${formatCOP(item.quick.amount)}`
+        : `Marcar ${item.name} como ${doneLower}`;
+  const checkClass = paid ? "check-on" : skipped ? "check-skip" : item.overdue ? "check-late" : "";
 
   return (
     <li className={`relative -mx-2 rounded-2xl px-2 py-3 transition-colors duration-500 ${celebrate ? "bg-savings/12" : ""}`}>
@@ -135,13 +170,13 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
               aria-label={label}
               aria-pressed={paid}
               aria-expanded={panel !== "none"}
-              className={`check ${paid ? "check-on" : item.overdue ? "check-late" : ""} ${celebrate ? "check-pop" : ""}`}
+              className={`check ${checkClass} ${celebrate ? "check-pop" : ""}`}
             >
-              <CheckMark paid={paid} late={item.overdue} />
+              <CheckMark paid={paid} late={item.overdue} skipped={skipped} />
             </button>
           ) : (
-            <span className={`check ${paid ? "check-on" : item.overdue ? "check-late" : ""}`} role="img" aria-label={paid ? "Pagado" : "Sin pagar"}>
-              <CheckMark paid={paid} late={item.overdue} />
+            <span className={`check ${checkClass}`} role="img" aria-label={paid ? doneWord : skipped ? "Omitido" : income ? "Sin recibir" : "Sin pagar"}>
+              <CheckMark paid={paid} late={item.overdue} skipped={skipped} />
             </span>
           )}
           {celebrate && (
@@ -169,16 +204,17 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
 
         <button type="button" className="min-w-0 flex-1 text-left" onClick={onCheck} disabled={!editable} tabIndex={-1}>
           <p className="truncate font-semibold">
-            <span className={`strike ${paid ? "strike-on text-ink-2" : ""}`}>{item.name}</span>
+            <span className={`strike ${paid ? "strike-on text-ink-2" : skipped ? "text-ink-3" : ""}`}>{item.name}</span>
           </p>
           <p className={`text-sm ${paid ? "font-medium text-ink-2" : item.overdue ? "font-semibold text-ink" : "text-ink-3"}`}>
-            {item.overdue && !paid && <span className="pill pill-urgent mr-1.5">Vencido</span>}
+            {item.overdue && !paid && <span className="pill pill-urgent mr-1.5">{income ? "Atrasado" : "Vencido"}</span>}
             {status}
           </p>
         </button>
 
         <div className="shrink-0 text-right">
-          <p className={`display num text-lg transition-opacity ${paid ? "opacity-60" : ""}`}>
+          <p className={`display num text-lg transition-opacity ${paid || skipped ? "opacity-50" : ""} ${skipped ? "line-through" : ""}`}>
+            {income && (paid || item.expected) ? "+" : ""}
             {paid ? formatCOP(item.paidAmount || item.expected || 0) : item.expected ? formatCOP(item.expected) : "Variable"}
           </p>
           {editable && undoable && paid && (
@@ -186,9 +222,9 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
               Deshacer
             </button>
           )}
-          {editable && !paid && item.quick && (
-            <button type="button" className="text-xs font-medium text-ink-3 hover:text-ink" onClick={() => setPanel(panel === "form" ? "none" : "form")}>
-              Otro valor
+          {editable && !paid && !skipped && (
+            <button type="button" className="text-xs font-medium text-ink-3 hover:text-ink" onClick={() => setPanel(panel === "form" ? "none" : "form")} aria-expanded={panel === "form"}>
+              Opciones
             </button>
           )}
         </div>
@@ -208,12 +244,12 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
               <input type="hidden" name="type" value={item.type} />
               <input type="hidden" name="id" value={item.id} />
               <label className="field">
-                Cuánto pagaste
+                {income ? "Cuánto llegó" : "Cuánto pagaste"}
                 <MoneyInput name="amount" defaultValue={item.expected} required autoFocus />
               </label>
               <label className="field">
-                {item.type === "bill" ? "Con qué" : "Sale de"}
-                <select className="input" name="account_id" defaultValue={item.quick?.accountId ?? ""} required={item.type === "bill"}>
+                {item.type === "bill" ? "Con qué" : income ? "Llegó a" : "Sale de"}
+                <select className="input" name="account_id" defaultValue={item.quick?.accountId ?? ""} required={item.type !== "debt"}>
                   {item.type === "debt" && <option value="">Otra fuente (no registrada)</option>}
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -226,15 +262,60 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
                 Fecha
                 <input className="input" type="date" name="occurred_on" defaultValue={today} min={`${month}-01`} max={today} required />
               </label>
-              <button className="btn" disabled={pending}>
-                Marcar pagado
-              </button>
+              <div className="flex gap-2 sm:col-span-4 sm:justify-end">
+                <button type="button" className="btn-quiet flex-1 sm:flex-none" onClick={() => setPanel("skip")}>
+                  Omitir este mes
+                </button>
+                <button className="btn flex-1 sm:flex-none" disabled={pending}>
+                  Marcar {doneLower}
+                </button>
+              </div>
             </form>
+          )}
+          {editable && panel === "skip" && !paid && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                skip(new FormData(e.currentTarget));
+              }}
+              className="mt-3 grid gap-3 rounded-2xl bg-line/40 p-3 sm:ml-14 sm:grid-cols-[1fr_auto] sm:items-end"
+            >
+              <input type="hidden" name="type" value={item.type} />
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="month" value={month} />
+              <label className="field">
+                {income ? "¿Por qué no llega este mes? (opcional)" : "¿Por qué no aplica este mes? (opcional)"}
+                <input className="input" name="note" maxLength={200} placeholder={income ? "Vacaciones sin pago" : "Rediferida con el banco"} autoFocus />
+              </label>
+              <div className="flex gap-2">
+                <button type="button" className="btn-quiet flex-1" onClick={() => setPanel("form")}>
+                  Volver
+                </button>
+                <button className="btn flex-1" disabled={pending}>
+                  Omitir
+                </button>
+              </div>
+            </form>
+          )}
+          {editable && panel === "unskip" && skipped && (
+            <div className="mt-3 flex flex-col gap-3 rounded-2xl bg-line/40 p-3 sm:ml-14 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm">
+                <span className="font-semibold">{item.name}</span> no cuenta este mes. ¿Lo vuelves a incluir?
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" className="btn-quiet" onClick={() => setPanel("none")}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn" onClick={unskip} disabled={pending}>
+                  Volver a incluir
+                </button>
+              </div>
+            </div>
           )}
           {editable && panel === "confirm" && paid && (
             <div className="mt-3 flex flex-col gap-3 rounded-2xl bg-debt/10 p-3 sm:ml-14 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm">
-                ¿Desmarcar <span className="font-semibold">{item.name}</span>? Se borra el pago de {formatCOP(item.paidAmount)} registrado este mes.
+                ¿Desmarcar <span className="font-semibold">{item.name}</span>? Se borra {income ? "el ingreso" : "el pago"} de {formatCOP(item.paidAmount)} registrado este mes.
               </p>
               <div className="flex shrink-0 gap-2">
                 <button type="button" className="btn-quiet" onClick={() => setPanel("none")}>
@@ -254,7 +335,8 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
 }
 
 /** The tick draws itself when the payment is marked; overdue items show "!". */
-function CheckMark({ paid, late }: { paid: boolean; late: boolean }) {
+function CheckMark({ paid, late, skipped }: { paid: boolean; late: boolean; skipped?: boolean }) {
+  if (skipped && !paid) return <span aria-hidden="true">–</span>;
   if (paid) {
     return (
       <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

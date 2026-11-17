@@ -15,6 +15,11 @@ export interface FormState {
 
 const text = (form: FormData, name: string) => String(form.get(name) ?? "").trim();
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Supabase's answer when a table from a migration that has not run yet is queried. */
+const missingTable = (message: string, migration: string) =>
+  /relation .* does not exist|schema cache|could not find the table|column .* does not exist/i.test(message) ? `Falta ejecutar la migración ${migration} en Supabase.` : null;
 
 async function signedIn() {
   const supabase = await createClient();
@@ -104,10 +109,12 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
 
 export async function deleteAccount(form: FormData) {
   const supabase = await signedIn();
-  const { error } = await supabase.from("accounts").delete().eq("id", text(form, "id"));
+  const id = text(form, "id");
+  const { data: account } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
+  const { error } = await supabase.from("accounts").delete().eq("id", id);
   if (error) throw new Error(`No se pudo eliminar la cuenta: ${error.message}`);
   revalidatePath("/", "layout");
-  redirect("/cuentas");
+  redirect(account && isDebt(account) ? "/deudas" : "/");
 }
 
 export async function saveTx(_prev: FormState, form: FormData): Promise<FormState> {
@@ -135,7 +142,7 @@ export async function saveTx(_prev: FormState, form: FormData): Promise<FormStat
     }
   }
 
-  const { error } = await supabase.from("transactions").insert({
+  const row = {
     kind,
     account_id,
     source_account_id,
@@ -143,10 +150,14 @@ export async function saveTx(_prev: FormState, form: FormData): Promise<FormStat
     occurred_on,
     category: kind === "expense" ? text(form, "category") || null : null,
     description: text(form, "description") || null,
-  });
+  };
+  // With an id the form edits that movement; its links to a bill or an income stay as they were.
+  const id = text(form, "id");
+  if (id && !UUID.test(id)) return { error: "Ese movimiento no existe." };
+  const { error } = id ? await supabase.from("transactions").update(row).eq("id", id) : await supabase.from("transactions").insert(row);
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   revalidatePath("/", "layout");
-  return { message: "Movimiento registrado." };
+  return { message: id ? "Movimiento actualizado." : "Movimiento registrado." };
 }
 
 export async function deleteTx(form: FormData) {
@@ -257,7 +268,17 @@ export async function markPaid(_prev: FormState, form: FormData): Promise<FormSt
   const id = text(form, "id");
   const account_id = text(form, "account_id") || null;
 
-  if (form.get("type") === "bill") {
+  if (form.get("type") === "income") {
+    if (!account_id) return { error: "Elige a qué cuenta llegó." };
+    const [{ data: income }, { data: target }] = await Promise.all([
+      supabase.from("incomes").select("id, name").eq("id", id).maybeSingle(),
+      supabase.from("accounts").select("kind").eq("id", account_id).maybeSingle(),
+    ]);
+    if (!income) return { error: "Ese ingreso ya no existe." };
+    if (!target || isDebt(target)) return { error: "El ingreso debe llegar a una cuenta de ahorros o a tu efectivo." };
+    const { error } = await supabase.from("transactions").insert({ kind: "income", account_id, amount, occurred_on, income_id: income.id, description: income.name });
+    if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo guardar: ${error.message}` };
+  } else if (form.get("type") === "bill") {
     if (!account_id) return { error: "Elige con qué pagaste." };
     const { data: bill } = await supabase.from("bills").select("id, name, category").eq("id", id).maybeSingle();
     if (!bill) return { error: "Ese pago fijo ya no existe." };
@@ -298,7 +319,9 @@ export async function unmarkPaid(form: FormData) {
 
   // Find exactly the movements that ticked it; balance adjustments are never touched.
   const base = supabase.from("transactions").select("id, category").gte("occurred_on", `${month}-01`).lte("occurred_on", last);
-  const { data: rows, error: findError } = form.get("type") === "bill" ? await base.eq("bill_id", id) : await base.eq("account_id", id).eq("kind", "payment");
+  const type = form.get("type");
+  const { data: rows, error: findError } =
+    type === "bill" ? await base.eq("bill_id", id) : type === "income" ? await base.eq("income_id", id) : await base.eq("account_id", id).eq("kind", "payment");
   if (findError) throw new Error(`No se pudo deshacer: ${findError.message}`);
   const ids = (rows ?? []).filter((r) => r.category !== ADJUSTMENT).map((r) => r.id);
   if (ids.length === 0) return;
@@ -443,4 +466,74 @@ export async function addDeposit(_prev: FormState, form: FormData): Promise<Form
   if (error) return { error: goalsMissing(error.message) ?? `No se pudo guardar: ${error.message}` };
   revalidatePath("/", "layout");
   return { message: sign > 0 ? "Abono registrado." : "Retiro registrado." };
+}
+
+/** «Este mes no aplica»: the item stops counting as pending or late for that month. */
+export async function skipItem(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const item_type = text(form, "type");
+  const item_id = text(form, "id");
+  const month = text(form, "month");
+  if (!["bill", "debt", "income"].includes(item_type) || !UUID.test(item_id) || !MONTH.test(month)) return { error: "No se pudo omitir." };
+  const note = text(form, "note").slice(0, 200) || null;
+  const { error } = await supabase.from("checklist_skips").upsert({ item_type, item_id, month, note }, { onConflict: "user_id,item_type,item_id,month" });
+  if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo omitir: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Omitido este mes." };
+}
+
+export async function unskipItem(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("checklist_skips").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo deshacer: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+export async function saveBudget(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const category = text(form, "category");
+  if (!category) return { error: "Elige la categoría." };
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe un tope mayor que cero." };
+  const { error } = await supabase.from("budgets").upsert({ category, amount }, { onConflict: "user_id,category" });
+  if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: `Presupuesto de ${category} guardado.` };
+}
+
+export async function deleteBudget(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("budgets").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo eliminar: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+export async function saveIncome(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const name = text(form, "name");
+  if (!name) return { error: "Ponle un nombre al ingreso." };
+  const day = optionalDay(form, "day");
+  if (day === null || day === "invalid") return { error: "El día debe estar entre 1 y 31." };
+  const amountRaw = text(form, "amount");
+  const amount = amountRaw ? parsePesos(amountRaw) : null;
+  if (amountRaw && !amount) return { error: "El valor no es válido." };
+  const months = form.getAll("months").map(Number).filter((m) => Number.isInteger(m) && m >= 1 && m <= 12);
+  const account_id = text(form, "account_id") || null;
+  if (account_id) {
+    const { data: target } = await supabase.from("accounts").select("kind").eq("id", account_id).maybeSingle();
+    if (!target || isDebt(target)) return { error: "El ingreso debe llegar a una cuenta de ahorros o a tu efectivo." };
+  }
+  const row = { name, day, amount, account_id, months: months.length === 0 || months.length === 12 ? null : [...new Set(months)].sort((a, b) => a - b) };
+  const id = text(form, "id");
+  const { error } = id ? await supabase.from("incomes").update(row).eq("id", id) : await supabase.from("incomes").insert(row);
+  if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: `${name} quedó programado.` };
+}
+
+export async function deleteIncome(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("incomes").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo eliminar: ${error.message}`);
+  revalidatePath("/", "layout");
 }

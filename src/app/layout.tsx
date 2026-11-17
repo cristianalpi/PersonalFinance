@@ -9,6 +9,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: APP_NAME,
   description: APP_TAGLINE,
+  applicationName: APP_NAME,
+  // «Agregar a pantalla de inicio» on iPhone opens Guaca full screen, like an app.
+  appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

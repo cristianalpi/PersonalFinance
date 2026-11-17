@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteTx } from "@/app/actions";
-import { ADJUSTMENT, formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Tx, type TxKind } from "@/lib/finance";
+import { ADJUSTMENT, formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Account, type Tx, type TxKind } from "@/lib/finance";
+import { Sheet } from "./modal";
+import { TxForm } from "./tx-form";
 
 const FILTERS: { value: TxKind | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -20,7 +22,14 @@ const LOOK: Record<TxKind, { label: string; stripe: string; tint: string; sign: 
 
 const PAGE = 60;
 
-export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: Record<string, string>; today: string }) {
+const ACTIONS_WIDTH = 152; // two 76 px buttons behind a swiped row
+
+export function TxList({ txs, accounts, today }: { txs: Tx[]; accounts: Pick<Account, "id" | "name" | "kind">[]; today: string }) {
+  const accountNames = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.name])), [accounts]);
+  const [editing, setEditing] = useState<Tx | null>(null);
+  const closeEditor = useCallback(() => setEditing(null), []);
+  // Only one row stays swiped open at a time.
+  const [swiped, setSwiped] = useState<string | null>(null);
   const [filter, setFilter] = useState<TxKind | "all">("all");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE);
@@ -101,6 +110,7 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
       ) : (
         // Re-keying on the filter replays the entrance animation for the new set.
         <div key={`${filter}|${query}`} className="flex flex-col gap-4">
+          <p className="hidden text-xs text-ink-3 [@media(pointer:coarse)]:block">Desliza un movimiento a la izquierda para editarlo o borrarlo.</p>
           {days.map((day) => (
             <div key={day.date} className="card rise overflow-hidden p-0 sm:p-0" style={{ "--i": position } as React.CSSProperties}>
               <div className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-5">
@@ -114,10 +124,30 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                 {day.items.map((tx) => {
                   const look = LOOK[tx.kind];
                   return (
-                    <li
+                    <SwipeRow
                       key={tx.id}
-                      className="rise group relative flex items-center gap-3 py-3 pl-5 pr-2 transition-colors hover:bg-brand/5 sm:pr-5"
-                      style={{ "--i": position++ } as React.CSSProperties}
+                      open={swiped === tx.id}
+                      onOpen={() => setSwiped(tx.id)}
+                      onClose={() => setSwiped((id) => (id === tx.id ? null : id))}
+                      index={position++}
+                      actions={
+                        <>
+                          <button
+                            type="button"
+                            className="swipe-action bg-brand"
+                            disabled={tx.category === ADJUSTMENT}
+                            onClick={() => { setSwiped(null); setEditing(tx); }}
+                          >
+                            <span aria-hidden="true" className="text-lg">✎</span>Editar
+                          </button>
+                          <form action={deleteTx} className="contents">
+                            <input type="hidden" name="id" value={tx.id} />
+                            <button className="swipe-action bg-debt">
+                              <span aria-hidden="true" className="text-lg">🗑</span>Borrar
+                            </button>
+                          </form>
+                        </>
+                      }
                     >
                       <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full" style={{ background: look.stripe }} />
                       <span className={`badge text-xl ${look.tint}`} aria-hidden="true">
@@ -136,24 +166,37 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
                         {look.sign}
                         {formatCOP(tx.amount)}
                       </p>
-                      {armed === tx.id ? (
-                        <form action={deleteTx} className="rise shrink-0">
-                          <input type="hidden" name="id" value={tx.id} />
-                          <button className="pill pill-urgent py-1.5 text-xs" aria-label={`Confirmar: borrar ${title(tx)}`}>
-                            Borrar
+                      {/* Mouse and keyboard: the same actions, shown on hover or focus. Touch uses the swipe. */}
+                      <span className="flex shrink-0 gap-0.5 [@media(pointer:coarse)]:hidden">
+                        {tx.category !== ADJUSTMENT && (
+                          <button
+                            type="button"
+                            onClick={() => setEditing(tx)}
+                            className="row-tool"
+                            aria-label={`Editar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
+                          >
+                            ✎
                           </button>
-                        </form>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setArmed(tx.id)}
-                          className="shrink-0 rounded-md px-1.5 py-1 text-sm text-ink-3 transition-opacity hover:text-ink sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
-                          aria-label={`Eliminar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </li>
+                        )}
+                        {armed === tx.id ? (
+                          <form action={deleteTx} className="rise">
+                            <input type="hidden" name="id" value={tx.id} />
+                            <button className="pill pill-urgent py-1.5 text-xs" aria-label={`Confirmar: borrar ${title(tx)}`}>
+                              Borrar
+                            </button>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setArmed(tx.id)}
+                            className="row-tool"
+                            aria-label={`Eliminar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    </SwipeRow>
                   );
                 })}
               </ul>
@@ -162,11 +205,95 @@ export function TxList({ txs, accountNames, today }: { txs: Tx[]; accountNames: 
         </div>
       )}
 
+      <Sheet open={editing !== null} onClose={closeEditor} title="Editar movimiento">
+        {editing && <TxForm key={editing.id} accounts={accounts} today={today} tx={editing} onDone={closeEditor} />}
+      </Sheet>
+
       {matches.length > limit && (
         <button type="button" className="btn-quiet self-center" onClick={() => setLimit(limit + PAGE)}>
           Ver más ({matches.length - limit} restantes)
         </button>
       )}
     </section>
+  );
+}
+
+/**
+ * A list row that slides left under a finger to reveal its actions, like
+ * Mail on iPhone. Vertical scrolling keeps working: the swipe only starts
+ * once the finger moves more sideways than up or down.
+ */
+function SwipeRow({
+  open,
+  onOpen,
+  onClose,
+  index,
+  actions,
+  children,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  index: number;
+  actions: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [drag, setDrag] = useState<number | null>(null);
+  const start = useRef<{ x: number; y: number; base: number; axis: "x" | "y" | null } | null>(null);
+  const offset = drag ?? (open ? -ACTIONS_WIDTH : 0);
+
+  function down(e: React.PointerEvent) {
+    if (e.pointerType !== "touch") return;
+    start.current = { x: e.clientX, y: e.clientY, base: open ? -ACTIONS_WIDTH : 0, axis: null };
+  }
+  function move(e: React.PointerEvent) {
+    const s = start.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!s.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      s.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (s.axis === "x") (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    }
+    if (s.axis !== "x") return;
+    // Rubber band past the actions, none to the right.
+    const raw = s.base + dx;
+    setDrag(raw < -ACTIONS_WIDTH ? -ACTIONS_WIDTH + (raw + ACTIONS_WIDTH) * 0.25 : Math.min(0, raw));
+  }
+  function up() {
+    const s = start.current;
+    start.current = null;
+    if (!s || s.axis !== "x" || drag === null) return setDrag(null);
+    if (drag < -ACTIONS_WIDTH / 2.5) onOpen();
+    else onClose();
+    setDrag(null);
+  }
+
+  const reveal = Math.min(1, -offset / 60);
+  return (
+    <li className="rise relative overflow-hidden" style={{ "--i": index } as React.CSSProperties}>
+      <div className="absolute inset-y-0 right-0 flex" style={{ width: ACTIONS_WIDTH, opacity: reveal }} aria-hidden={!open} inert={!open}>
+        {actions}
+      </div>
+      <div
+        className={`group relative flex touch-pan-y items-center gap-3 py-3 pl-5 pr-2 hover:bg-brand/5 sm:pr-5 ${offset < 0 ? "bg-surface shadow-lg" : ""} ${drag === null ? "transition-transform duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.2)]" : ""}`}
+        style={{ transform: `translateX(${offset}px)` }}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        onClickCapture={(e) => {
+          // A tap on a swiped row closes it instead of acting.
+          if (open) {
+            e.stopPropagation();
+            e.preventDefault();
+            onClose();
+          }
+        }}
+      >
+        {children}
+      </div>
+    </li>
   );
 }

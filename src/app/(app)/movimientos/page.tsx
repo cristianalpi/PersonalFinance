@@ -1,18 +1,20 @@
 import Link from "next/link";
+import { BudgetsCard } from "@/components/budgets-card";
 import { InboxItem } from "@/components/inbox-item";
+import { budgetViews } from "@/lib/budget";
 import { TxForm } from "@/components/tx-form";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
 import { CATEGORIES, formatCOP, monthLabel } from "@/lib/finance";
 
 export default async function TransactionsPage() {
-  const { accounts, txs, inbox, today } = await loadData();
+  const { accounts, txs, inbox, budgets, planReady, today } = await loadData();
 
   if (accounts.length === 0) {
     return (
       <section className="card flex flex-col items-start gap-3">
         <h1 className="display text-3xl">Primero registra una cuenta</h1>
-        <Link href="/cuentas" className="btn">
+        <Link href="/?nueva=1" className="btn">
           Ir a cuentas
         </Link>
       </section>
@@ -55,6 +57,8 @@ export default async function TransactionsPage() {
         </div>
       </section>
 
+      {planReady && <BudgetsCard views={budgetViews(budgets, txs, month, today)} current />}
+
       {inbox.length > 0 && (
         <section className="card">
           <h2 className="display text-2xl">Pagos de Apple Wallet por revisar</h2>
@@ -68,7 +72,7 @@ export default async function TransactionsPage() {
       )}
 
       <TxForm accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
-      <TxList txs={txs} accountNames={Object.fromEntries(accounts.map((a) => [a.id, a.name]))} today={today} />
+      <TxList txs={txs} accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
     </>
   );
 }
