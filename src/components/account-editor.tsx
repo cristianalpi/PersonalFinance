@@ -173,6 +173,10 @@ export function AccountEditor({ account }: { account: Account }) {
                 Día de corte
                 <input className="input" type="number" name="statement_day" min={1} max={31} defaultValue={account.statement_day ?? ""} />
               </label>
+              <label className="field">
+                Pago mínimo o cuota fija
+                <MoneyInput name="monthly_payment" defaultValue={account.monthly_payment} />
+              </label>
             </>
           )}
           {isLoan && (

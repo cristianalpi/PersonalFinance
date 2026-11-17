@@ -24,6 +24,10 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
         <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} />
       </Link>
 
+      <Link href={`/cuentas/${account.id}#saldo`} className="-mt-2 self-start text-sm font-medium text-brand">
+        ↻ Actualizar saldo
+      </Link>
+
       {first && (
         <p className="pill pill-idea self-start">
           <span aria-hidden="true">★</span>&nbsp;Abona aquí primero: es tu deuda más cara

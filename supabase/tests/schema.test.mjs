@@ -130,3 +130,13 @@ test("cash accounts are allowed and can fund a payment to a debt", async () => {
   await as(ANA, "insert into transactions (account_id, source_account_id, kind, amount) values ($1, $2, 'payment', 50000)", [visa.id, cash.id]);
   await assert.rejects(as(ANA, "insert into accounts (kind, name) values ('crypto', 'X')"), /check constraint/);
 });
+
+test("goals: a save goal needs an amount, a payoff goal needs one's own debt", async () => {
+  const [goal] = await as(ANA, "insert into goals (kind, name, target_amount, target_date) values ('save', 'Armario', 2000000, '2027-02-01') returning id");
+  await as(ANA, "insert into goal_deposits (goal_id, amount) values ($1, 300000)", [goal.id]);
+  await as(ANA, "insert into goals (kind, name, account_id, target_date, start_balance) values ('payoff', 'Visa en cero', $1, '2027-04-30', 100)", [visa.id]);
+  await assert.rejects(as(ANA, "insert into goals (kind, name, target_date) values ('save', 'Sin monto', '2027-01-01')"), /check constraint/);
+  await assert.rejects(as(ANA, "insert into goals (kind, name, account_id, target_date) values ('payoff', 'Ajena', $1, '2027-01-01')", [betoCard.id]), /row-level security/);
+  await assert.rejects(as(BETO, "insert into goal_deposits (goal_id, amount) values ($1, 5)", [goal.id]), /row-level security/);
+  assert.equal((await as(BETO, "select * from goals")).length, 0);
+});

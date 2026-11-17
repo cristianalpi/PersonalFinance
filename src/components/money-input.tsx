@@ -14,6 +14,7 @@ export function MoneyInput({
   placeholder = "$ 0",
   autoFocus,
   label,
+  onValue,
 }: {
   name: string;
   defaultValue?: number | string | null;
@@ -21,6 +22,8 @@ export function MoneyInput({
   placeholder?: string;
   autoFocus?: boolean;
   label?: string;
+  /** Called with the amount in pesos as the person types. */
+  onValue?: (pesos: number) => void;
 }) {
   const [value, setValue] = useState(() => formatPesosInput(defaultValue));
   return (
@@ -29,7 +32,9 @@ export function MoneyInput({
       name={name}
       value={value}
       onChange={(e) => {
-        setValue(formatPesosInput(e.target.value));
+        const next = formatPesosInput(e.target.value);
+        setValue(next);
+        onValue?.(Number(next.replace(/\D/g, "")) || 0);
         // Keep the caret at the end: the dots move as digits are typed.
         const el = e.target;
         requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));

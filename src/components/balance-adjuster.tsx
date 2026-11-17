@@ -1,0 +1,54 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { adjustBalance, type FormState } from "@/app/actions";
+import { formatCOP } from "@/lib/finance";
+import { MoneyInput } from "./money-input";
+
+/**
+ * "Actualizar saldo": the person types what the bank shows today and the
+ * difference is recorded as a movement, so history and balance stay in step.
+ */
+export function BalanceAdjuster({ id, current, debt, today }: { id: string; current: number; debt: boolean; today: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(adjustBalance, {});
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div id="saldo" className="scroll-mt-4">
+      {!open ? (
+        <button type="button" className="liquid h-11 rounded-2xl px-4 text-sm font-semibold" onClick={() => setOpen(true)}>
+          ↻ Actualizar saldo
+        </button>
+      ) : (
+        <form action={action} className="card rise flex flex-col gap-3">
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="current" value={current} />
+          <p className="text-sm text-ink-2">
+            Aquí dice <span className="num font-semibold text-ink">{formatCOP(current)}</span>. Escribe {debt ? "lo que debes según el banco" : "el saldo que ves en el banco"} y la
+            diferencia queda registrada como un ajuste.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <label className="field">
+              {debt ? "Deuda según el banco" : "Saldo según el banco"}
+              <MoneyInput name="balance" required autoFocus />
+            </label>
+            <label className="field">
+              A la fecha
+              <input className="input" type="date" name="occurred_on" defaultValue={today} max={today} required />
+            </label>
+            <div className="flex gap-2">
+              <button type="button" className="btn-quiet h-11" onClick={() => setOpen(false)}>
+                Cancelar
+              </button>
+              <button className="btn h-11" disabled={pending}>
+                Guardar
+              </button>
+            </div>
+          </div>
+          {state.error && <p role="alert" className="alert">{state.error}</p>}
+          {state.message && <p role="status" className="text-sm font-semibold text-ink">✓ {state.message}</p>}
+        </form>
+      )}
+    </div>
+  );
+}

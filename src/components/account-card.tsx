@@ -41,19 +41,22 @@ export function AccountCard({
 
   return (
     <div
-      className={`relative isolate flex flex-col justify-between overflow-hidden rounded-3xl shadow-[0_18px_40px_-18px_rgba(30,20,90,0.55)] ${
-        size === "sm" ? "min-h-36 gap-3 p-4" : big ? "aspect-[1.586] max-w-md gap-4 p-6" : "aspect-[1.586] gap-4 p-5"
+      // The card keeps a card's proportions but grows when its content needs more room.
+      // It must not clip: with overflow hidden, aspect-ratio would cut the bottom (balance, usage bar).
+      className={`relative isolate flex flex-col justify-between rounded-3xl shadow-[0_18px_40px_-18px_rgba(30,20,90,0.55)] ${
+        size === "sm" ? "min-h-36 gap-3 p-4" : big ? "aspect-[1.586] w-full max-w-md gap-4 p-6" : "aspect-[1.586] gap-4 p-5"
       }`}
       style={{ background: `linear-gradient(135deg, ${color} 0%, ${shade(color, 0.28)} 100%)`, color: ink }}
     >
-      {/* Light that sweeps across the card, and two soft rings: decoration only. */}
-      <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 -z-10 size-56 rounded-full border-[28px] opacity-15" style={{ borderColor: ink }} />
-      <span aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-10 -z-10 size-56 rounded-full opacity-10" style={{ background: ink }} />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{ background: `linear-gradient(115deg, ${light ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.4)"} 0%, transparent 38%)` }}
-      />
+      {/* Decoration lives in its own clipped layer: light sweeping across and two soft rings. */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-3xl">
+        <span className="absolute -right-16 -top-20 size-56 rounded-full border-[28px] opacity-15" style={{ borderColor: ink }} />
+        <span className="absolute -bottom-24 -left-10 size-56 rounded-full opacity-10" style={{ background: ink }} />
+        <span
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(115deg, ${light ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.4)"} 0%, transparent 38%)` }}
+        />
+      </span>
 
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">

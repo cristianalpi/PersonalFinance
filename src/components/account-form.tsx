@@ -23,9 +23,9 @@ const PLACEHOLDER: Record<AccountKind, string> = {
  * New account form. In the modal it starts from the kind tiles; `onSaved` closes
  * the modal once the account is stored.
  */
-export function AccountForm({ today, onSaved }: { today: string; onSaved?: () => void }) {
+export function AccountForm({ today, onSaved, initialKind = "savings" }: { today: string; onSaved?: () => void; initialKind?: AccountKind }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveAccount, {});
-  const [kind, setKind] = useState<AccountKind>("savings");
+  const [kind, setKind] = useState<AccountKind>(initialKind);
   const debt = isDebt({ kind });
 
   useEffect(() => {
@@ -84,6 +84,10 @@ export function AccountForm({ today, onSaved }: { today: string; onSaved?: () =>
             <label className="field">
               Día de corte
               <input className="input" type="number" name="statement_day" min={1} max={31} />
+            </label>
+            <label className="field">
+              Pago mínimo o cuota fija (opcional)
+              <MoneyInput name="monthly_payment" placeholder="$ 300.000" />
             </label>
           </>
         )}

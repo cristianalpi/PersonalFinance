@@ -2,14 +2,19 @@
 
 import { useEffect } from "react";
 
-/** Opens the editor when the page is reached through a link ending in #editar. */
+/** Opens the editor for links ending in #editar, and scrolls to the balance form for #saldo. */
 export function OpenEditorFromHash() {
   useEffect(() => {
-    if (window.location.hash !== "#editar") return;
-    const el = document.getElementById("editar");
-    if (el instanceof HTMLDetailsElement) {
-      el.open = true;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    const hash = window.location.hash;
+    if (hash === "#editar") {
+      const el = document.getElementById("editar");
+      if (el instanceof HTMLDetailsElement) {
+        el.open = true;
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    if (hash === "#saldo") {
+      document.querySelector<HTMLButtonElement>("#saldo button")?.click();
     }
   }, []);
   return null;

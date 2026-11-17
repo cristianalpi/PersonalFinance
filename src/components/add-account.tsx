@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AccountKind } from "@/lib/finance";
 import { AccountForm } from "./account-form";
+
+const OPEN_EVENT = "add-account";
+
+/** Opens the "Nueva cuenta" modal from anywhere on the page, with a kind already chosen. */
+export function openAddAccount(kind: AccountKind = "savings") {
+  window.dispatchEvent(new CustomEvent<AccountKind>(OPEN_EVENT, { detail: kind }));
+}
 
 /**
  * The "Agregar cuenta" button and its modal: a centred window on wide
@@ -11,13 +19,21 @@ import { AccountForm } from "./account-form";
 export function AddAccount({ today, autoOpen = false }: { today: string; autoOpen?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [round, setRound] = useState(0);
+  const [kind, setKind] = useState<AccountKind>("savings");
   const [saved, setSaved] = useState<string | null>(null);
 
-  const open = useCallback(() => {
+  const open = useCallback((start: AccountKind = "savings") => {
+    setKind(start);
     setRound((r) => r + 1);
     setSaved(null);
     dialog.current?.showModal();
   }, []);
+
+  useEffect(() => {
+    const onOpen = (e: Event) => open((e as CustomEvent<AccountKind>).detail);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, [open]);
   const close = useCallback(() => dialog.current?.close(), []);
   const onSaved = useCallback(() => {
     close();
@@ -36,7 +52,7 @@ export function AddAccount({ today, autoOpen = false }: { today: string; autoOpe
 
   return (
     <>
-      <button type="button" onClick={open} className="btn h-12 gap-2 rounded-2xl px-5 text-base">
+      <button type="button" onClick={() => open()} className="btn h-12 gap-2 rounded-2xl px-5 text-base">
         <span aria-hidden="true" className="text-xl leading-none">
           +
         </span>
@@ -61,7 +77,7 @@ export function AddAccount({ today, autoOpen = false }: { today: string; autoOpe
               ✕
             </button>
           </div>
-          <AccountForm key={round} today={today} onSaved={onSaved} />
+          <AccountForm key={round} today={today} onSaved={onSaved} initialKind={kind} />
         </div>
       </dialog>
 

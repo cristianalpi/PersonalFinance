@@ -7,7 +7,7 @@ Stack: Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind 4 · Re
 ## Puesta en marcha
 
 1. Crea un proyecto en [Supabase](https://supabase.com).
-2. En el SQL Editor ejecuta, en orden, los archivos de `supabase/migrations/` (`0001` a `0005`).
+2. En el SQL Editor ejecuta, en orden, los archivos de `supabase/migrations/` (`0001` a `0006`).
 3. Copia `.env.example` a `.env.local` y pon la URL y la clave *publishable* del proyecto.
 4. `npm install && npm run dev`, abre http://localhost:3000 y usa **Crear cuenta**.
 5. Como es de un solo usuario: después de crear tu cuenta, desactiva los registros nuevos en Supabase (Authentication → Sign In / Providers → *Allow new users to sign up*).
@@ -38,6 +38,12 @@ Stack: Next.js 16 (App Router) · Supabase (Postgres + Auth) · Tailwind 4 · Re
 - Outfit para títulos y cifras, Plus Jakarta Sans para la interfaz; ambas se sirven desde el propio proyecto.
 - Barras y anillos con degradado que se dibujan al cargar, y gráfica de áreas. Con «reducir movimiento» activado, todo aparece en su estado final.
 - Tema claro y oscuro según el sistema; en teléfonos la navegación flota abajo y «Registrar gasto» queda siempre a un toque.
+
+## Metas y asesor
+
+- **Metas**: ahorrar un monto antes de una fecha, o dejar una deuda en cero antes de una fecha. La app calcula cuánto apartar al mes, por quincena y por semana, y si vas al día.
+- **Plan de pagos** (en Asesor): compara solo mínimos, avalancha y bola de nieve según cuánto puedes poner de más al mes, y muestra cuándo queda en cero cada deuda (`src/lib/planner.ts`).
+- **Asesor con IA**: chat con Claude (`claude-sonnet-5-5`) que recibe un resumen de tus finanzas calculado por la app. Se enciende con la variable `ANTHROPIC_API_KEY` en Vercel; opcionalmente `GUACA_AI_MODEL` para cambiar de modelo. La conversación no se guarda.
 
 ## Seguridad
 

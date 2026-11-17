@@ -1,0 +1,121 @@
+// What the AI advisor knows: a plain-text snapshot of the person's finances,
+// rebuilt from the database on every question. Numbers are computed here, not by the model.
+import { advise } from "./advice.ts";
+import { debtView } from "./debts.ts";
+import {
+  KIND_LABEL,
+  balanceAt,
+  formatCOP,
+  holdsMoney,
+  isDebt,
+  lastMonths,
+  monthLabel,
+  shiftMonth,
+  spendingByCategory,
+  totals,
+  type Account,
+  type Bill,
+  type Tx,
+} from "./finance.ts";
+import { goalView, type Goal, type GoalDeposit } from "./goals.ts";
+import { planDebts, simulate } from "./planner.ts";
+
+interface Snapshot {
+  accounts: Account[];
+  txs: Tx[];
+  bills: Bill[];
+  goals: Goal[];
+  deposits: GoalDeposit[];
+  today: string;
+}
+
+const month = (today: string, n: number | null) => (n === null ? "nunca con los pagos actuales" : monthLabel(shiftMonth(today.slice(0, 7), n)));
+
+export function advisorContext({ accounts, txs, bills, goals, deposits, today }: Snapshot): string {
+  const lines: string[] = [];
+  const t = totals(accounts, txs);
+  lines.push(`Fecha de hoy: ${today} (Colombia). Montos en pesos colombianos.`);
+  lines.push(`Tiene en total ${formatCOP(t.savings)}; debe en total ${formatCOP(t.debt)}; balance ${formatCOP(t.net)}.`);
+
+  lines.push("\n## Dinero disponible");
+  for (const a of accounts.filter(holdsMoney)) lines.push(`- ${a.name} (${KIND_LABEL[a.kind]}${a.institution ? `, ${a.institution}` : ""}): ${formatCOP(balanceAt(a, txs))}`);
+
+  lines.push("\n## Deudas");
+  for (const a of accounts.filter(isDebt)) {
+    const v = debtView(a, txs, today);
+    const parts = [
+      `saldo ${formatCOP(Math.max(0, v.balance))}`,
+      a.annual_rate !== null ? `tasa ${a.annual_rate}% E.A.` : "tasa no registrada",
+      a.monthly_payment ? `${a.kind === "loan" ? "cuota" : "pago mínimo/cuota"} ${formatCOP(a.monthly_payment)}` : "sin pago mínimo registrado",
+      a.credit_limit ? `cupo ${formatCOP(a.credit_limit)} (${Math.round((v.usage ?? 0) * 100)}% usado)` : null,
+      a.due_day ? `paga el día ${a.due_day}` : null,
+      v.monthlyInterest ? `intereses aprox. ${formatCOP(v.monthlyInterest)}/mes` : null,
+      v.monthsLeft ? `al ritmo actual termina en ${v.endsIn}` : null,
+    ].filter(Boolean);
+    lines.push(`- ${a.name} (${KIND_LABEL[a.kind]}${a.institution ? `, ${a.institution}` : ""}): ${parts.join("; ")}`);
+  }
+
+  const plan = planDebts(accounts, txs);
+  if (plan.length) {
+    lines.push("\n## Simulación de pago de deudas (calculada por la app)");
+    const assumed = plan.filter((d) => d.assumedMin).map((d) => d.name);
+    if (assumed.length) lines.push(`Sin pago mínimo registrado, se asumió 5% del saldo (mín. $50.000) para: ${assumed.join(", ")}.`);
+    for (const extra of [0, 500_000, 1_000_000]) {
+      for (const strategy of extra === 0 ? (["minimum"] as const) : (["avalanche", "snowball"] as const)) {
+        const r = simulate(plan, extra, strategy);
+        const name = { minimum: "Solo pagos mínimos", avalanche: "Avalancha (tasa más alta primero)", snowball: "Bola de nieve (saldo más pequeño primero)" }[strategy];
+        const order = r.order.map((id) => `${plan.find((d) => d.id === id)!.name} (${month(today, r.payoffMonth[id])})`).join(" → ");
+        lines.push(`- ${name}${extra ? ` con ${formatCOP(extra)} extra al mes` : ""}: libre de deudas ${month(today, r.months)}; intereses ${formatCOP(r.totalInterest)}. Orden: ${order || "—"}`);
+      }
+    }
+  }
+
+  if (bills.length) {
+    lines.push("\n## Pagos fijos mensuales");
+    for (const b of bills) lines.push(`- ${b.name}: ${b.amount ? formatCOP(b.amount) : "valor variable"}, día ${b.due_day}`);
+  }
+
+  const months = lastMonths(today, 3);
+  lines.push("\n## Últimos 3 meses (según lo registrado)");
+  for (const m of months) {
+    const inMonth = txs.filter((x) => x.occurred_on.startsWith(m));
+    const income = inMonth.filter((x) => x.kind === "income").reduce((s, x) => s + x.amount, 0);
+    const spent = inMonth.filter((x) => x.kind === "expense").reduce((s, x) => s + x.amount, 0);
+    const paid = inMonth.filter((x) => x.kind === "payment").reduce((s, x) => s + x.amount, 0);
+    const top = spendingByCategory(txs, m)
+      .slice(0, 5)
+      .map((c) => `${c.category} ${formatCOP(c.amount)}`)
+      .join(", ");
+    lines.push(`- ${monthLabel(m)}: ingresos ${formatCOP(income)}, gastos ${formatCOP(spent)}, pagos a deudas ${formatCOP(paid)}${top ? `. Mayores gastos: ${top}` : ""}`);
+  }
+
+  if (goals.length) {
+    lines.push("\n## Metas");
+    for (const g of goals) {
+      const v = goalView(g, deposits, accounts, txs, today);
+      lines.push(
+        `- ${g.name} (${g.kind === "save" ? "ahorro" : "pagar deuda"}): ${formatCOP(v.achieved)} de ${formatCOP(v.target)} para el ${g.target_date}; necesita ${formatCOP(v.perMonth)}/mes; estado: ${v.status}`,
+      );
+    }
+  }
+
+  const alerts = advise(accounts, txs, today, bills);
+  if (alerts.length) {
+    lines.push("\n## Alertas de la app");
+    for (const a of alerts) lines.push(`- ${a.title}. ${a.detail}`);
+  }
+  return lines.join("\n");
+}
+
+export const ADVISOR_SYSTEM = `Eres el asesor de finanzas personales de Guaca, una app que usa una sola persona en Colombia para llevar sus cuentas, tarjetas, créditos, pagos fijos y metas.
+
+Cómo respondes:
+- En español de Colombia, de tú, claro y directo. Respuestas cortas; usa listas o tablas en markdown cuando ayuden.
+- Basa todo en los datos de la persona que vienen abajo y en lo que te cuente. Las cifras de la simulación ya están calculadas por la app: úsalas en lugar de recalcular de memoria.
+- Cuando propongas un plan de pagos o amortización, muestra mes a mes cuánto pagar a cada deuda, en qué mes queda saldada cada una y cuánto interés se evita. Si la persona pide un plan para una sola deuda, enfócate en esa.
+- Prioridades por defecto: no atrasarse en cuotas (los intereses de mora y los reportes cuestan más), mantener los pagos mínimos de todo, y el dinero extra a la deuda con la tasa más alta (avalancha), salvo que la persona prefiera ganar impulso cerrando primero las pequeñas (bola de nieve). Explica la diferencia en pesos.
+- Si falta un dato que cambia la respuesta (una tasa, cuánto le sobra al mes, una fecha), dilo y pregúntalo, o da un rango.
+- Formato de montos: $ 1.500.000.
+- No eres un asesor financiero certificado ni das asesoría legal o tributaria. No recomiendes productos de inversión específicos. Para refinanciaciones o compras de cartera, sugiere comparar la tasa efectiva anual y el costo total con el banco.
+
+Datos actuales de la persona:`;

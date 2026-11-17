@@ -83,7 +83,7 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
     opening_balance,
     opening_date,
     credit_limit: kind === "credit_card" ? parsePesos(text(form, "credit_limit")) || null : null,
-    monthly_payment: kind === "loan" ? parsePesos(text(form, "monthly_payment")) || null : null,
+    monthly_payment: debt ? parsePesos(text(form, "monthly_payment")) || null : null,
     ...(kind === "loan" && parsePesos(text(form, "original_amount")) ? { original_amount: parsePesos(text(form, "original_amount")) } : {}),
     annual_rate,
     statement_day,
@@ -107,6 +107,7 @@ export async function deleteAccount(form: FormData) {
   const { error } = await supabase.from("accounts").delete().eq("id", text(form, "id"));
   if (error) throw new Error(`No se pudo eliminar la cuenta: ${error.message}`);
   revalidatePath("/", "layout");
+  redirect("/cuentas");
 }
 
 export async function saveTx(_prev: FormState, form: FormData): Promise<FormState> {
@@ -337,7 +338,7 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
       last4: kind === "loan" ? null : last4,
       logo,
       credit_limit: kind === "credit_card" ? parsePesos(text(form, "credit_limit")) || null : null,
-      monthly_payment: kind === "loan" ? parsePesos(text(form, "monthly_payment")) || null : null,
+      monthly_payment: debt ? parsePesos(text(form, "monthly_payment")) || null : null,
       original_amount: kind === "loan" ? parsePesos(text(form, "original_amount")) || null : null,
       statement_day,
       due_day,
@@ -353,4 +354,84 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
   }
   revalidatePath("/", "layout");
   return { message: "Cambios guardados." };
+}
+
+/**
+ * Sets an account to the balance the bank shows today by recording the
+ * difference as a movement, so the history stays consistent.
+ */
+export async function adjustBalance(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const id = text(form, "id");
+  const target = parsePesos(text(form, "balance"));
+  if (target === null) return { error: "Escribe el saldo que te muestra el banco." };
+  const current = Number(text(form, "current"));
+  if (!Number.isFinite(current)) return { error: "No se pudo leer el saldo actual." };
+
+  const { data: account } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
+  if (!account) return { error: "Esa cuenta ya no existe." };
+  const diff = target - current;
+  if (diff === 0) return { message: "El saldo ya estaba al día." };
+
+  const debt = isDebt(account);
+  // For a debt, more owed is a charge (interest, fees, a purchase not yet recorded); less is a payment.
+  const kind: TxKind = debt ? (diff > 0 ? "expense" : "payment") : diff > 0 ? "income" : "expense";
+  const { error } = await supabase.from("transactions").insert({
+    kind,
+    account_id: id,
+    amount: Math.abs(diff),
+    occurred_on: text(form, "occurred_on") || undefined,
+    category: kind === "expense" ? (debt ? "Intereses y cargos" : "Otros") : null,
+    description: "Ajuste de saldo",
+  });
+  if (error) return { error: `No se pudo ajustar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Saldo actualizado." };
+}
+
+const goalsMissing = (message: string) =>
+  /relation .* does not exist|schema cache|could not find the table/i.test(message) ? "Falta ejecutar la migración 0006 en Supabase." : null;
+
+export async function saveGoal(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const kind = text(form, "kind");
+  if (kind !== "save" && kind !== "payoff") return { error: "Tipo de meta no válido." };
+  const name = text(form, "name");
+  if (!name) return { error: "Ponle un nombre a la meta." };
+  const target_date = text(form, "target_date");
+  if (!DATE.test(target_date)) return { error: "Elige la fecha límite." };
+
+  let row: Record<string, unknown> = { kind, name, target_date, emoji: text(form, "emoji").slice(0, 8) || null };
+  if (kind === "save") {
+    const target_amount = parsePesos(text(form, "target_amount"));
+    if (!target_amount) return { error: "Escribe cuánto quieres juntar." };
+    row = { ...row, target_amount };
+  } else {
+    const account_id = text(form, "account_id");
+    const start_balance = Number(text(form, "start_balance"));
+    if (!account_id) return { error: "Elige la deuda que quieres saldar." };
+    row = { ...row, account_id, start_balance: Number.isFinite(start_balance) ? Math.max(0, Math.round(start_balance)) : null };
+  }
+  const { error } = await supabase.from("goals").insert(row);
+  if (error) return { error: goalsMissing(error.message) ?? `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Meta creada." };
+}
+
+export async function deleteGoal(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("goals").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo eliminar la meta: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
+export async function addDeposit(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe cuánto abonas." };
+  const sign = form.get("withdraw") ? -1 : 1;
+  const { error } = await supabase.from("goal_deposits").insert({ goal_id: text(form, "goal_id"), amount: sign * amount });
+  if (error) return { error: goalsMissing(error.message) ?? `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: sign > 0 ? "Abono registrado." : "Retiro registrado." };
 }

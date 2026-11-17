@@ -364,7 +364,8 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
     if (payments.length === 0 && Math.max(owedAtStart, owedNow) <= 0) continue;
     const due = account.due_day ? dueIn(account.due_day) : null;
     const lastSource = txs.find((t) => t.kind === "payment" && t.account_id === account.id)?.source_account_id ?? null;
-    const instalment = account.kind === "loan" && account.monthly_payment ? Math.min(account.monthly_payment, Math.max(owedNow, 0)) : null;
+    // Loans have their instalment; cards, the minimum or fixed payment when one is registered.
+    const instalment = account.monthly_payment ? Math.min(account.monthly_payment, Math.max(owedNow, 0)) : null;
     items.push({
       type: "debt",
       id: account.id,

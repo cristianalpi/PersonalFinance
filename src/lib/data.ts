@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { todayInBogota, type Account, type Bill, type Tx } from "./finance";
+import type { Goal, GoalDeposit } from "./goals";
 
 export interface InboxItem {
   id: string;
@@ -38,10 +39,14 @@ export async function loadData() {
     if (data.length < PAGE) break;
   }
 
-  const [bills, inbox] = await Promise.all([
+  const [bills, inbox, goals, deposits] = await Promise.all([
     supabase.from("bills").select("*").order("due_day"),
     supabase.from("wallet_inbox").select("*").order("received_at", { ascending: false }),
+    supabase.from("goals").select("*").order("target_date"),
+    supabase.from("goal_deposits").select("*").order("occurred_on", { ascending: false }),
   ]);
+  // Goals arrived with migration 0006: until it runs, the rest of the app keeps working.
+  const goalsMissing = Boolean(goals.error || deposits.error);
   if (bills.error) throw new Error(`No se pudieron leer los recibos: ${bills.error.message}`);
   if (inbox.error) throw new Error(`No se pudo leer la bandeja de Wallet: ${inbox.error.message}`);
 
@@ -52,6 +57,9 @@ export async function loadData() {
     txs,
     bills: bills.data as Bill[],
     inbox: inbox.data as InboxItem[],
+    goals: goalsMissing ? [] : (goals.data as Goal[]),
+    deposits: goalsMissing ? [] : (deposits.data as GoalDeposit[]),
+    goalsReady: !goalsMissing,
     today: todayInBogota(),
   };
 }

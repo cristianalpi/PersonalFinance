@@ -28,7 +28,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => applyTheme(dark ? "light" : "dark")}
-      className="btn-quiet size-10 p-0"
+      className="liquid flex size-10 items-center justify-center rounded-xl"
       aria-label={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
       title={dark ? "Modo claro" : "Modo oscuro"}
     >

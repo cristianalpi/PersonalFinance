@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { deleteAccount } from "@/app/actions";
 import { AccountCard } from "@/components/account-card";
 import { AccountEditor } from "@/components/account-editor";
+import { BalanceAdjuster } from "@/components/balance-adjuster";
 import { BalanceChart } from "@/components/balance-chart";
 import { UsageBar } from "@/components/usage-bar";
 import { OpenEditorFromHash } from "./open-editor";
@@ -27,7 +29,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
     account.institution && ["Entidad", account.institution],
     account.credit_limit && ["Cupo", `${formatCOP(account.credit_limit)} (disponible ${formatCOP(Math.max(0, account.credit_limit - balance))})`],
     account.annual_rate !== null && ["Tasa", `${account.annual_rate.toLocaleString("es-CO")}% efectivo anual`],
-    account.monthly_payment && ["Cuota mensual", formatCOP(account.monthly_payment)],
+    account.monthly_payment && [account.kind === "loan" ? "Cuota mensual" : "Pago mínimo o cuota", formatCOP(account.monthly_payment)],
     account.statement_day && ["Día de corte", String(account.statement_day)],
     due && ["Próximo pago", `${formatDate(due)}, ${relativeDay(daysBetween(today, due))}`],
     account.wallet_card_name && ["En Apple Wallet", account.wallet_card_name],
@@ -44,6 +46,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         <AccountCard account={account} balance={Math.max(0, balance)} caption={debt ? "Lo que debes hoy" : "Lo que tienes hoy"} size="lg">
           {account.kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
         </AccountCard>
+        <BalanceAdjuster id={account.id} current={balance} debt={debt} today={today} />
       </div>
 
       <section className="card" aria-labelledby="account-trend">
@@ -68,6 +71,14 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
       <details id="editar" className="card scroll-mt-4 [&[open]>summary]:mb-5">
         <summary className="display cursor-pointer text-2xl">Editar y personalizar</summary>
         <AccountEditor account={account} />
+        <details className="mt-6 border-t border-line pt-4 text-sm">
+          <summary className="cursor-pointer font-medium text-ink-3 hover:text-ink">Eliminar esta cuenta</summary>
+          <form action={deleteAccount} className="mt-3 flex flex-wrap items-center gap-3">
+            <input type="hidden" name="id" value={account.id} />
+            <p className="text-ink-2">Se borran también sus {own.length} movimientos. No se puede deshacer.</p>
+            <button className="btn-quiet border-debt/40 text-ink">Sí, eliminar</button>
+          </form>
+        </details>
       </details>
       <OpenEditorFromHash />
 
