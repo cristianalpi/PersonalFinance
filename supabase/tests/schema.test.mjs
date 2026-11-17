@@ -124,3 +124,9 @@ test("card look: color, last 4 digits and logo are validated", async () => {
   const [row] = await as(ANA, "select color, last4 from accounts where id = $1", [visa.id]);
   assert.deepEqual([row.color, row.last4], ["#6D4AFF", "4417"]);
 });
+
+test("cash accounts are allowed and can fund a payment to a debt", async () => {
+  const [cash] = await as(ANA, "insert into accounts (kind, name, opening_balance) values ('cash', 'Billetera', 300000) returning id");
+  await as(ANA, "insert into transactions (account_id, source_account_id, kind, amount) values ($1, $2, 'payment', 50000)", [visa.id, cash.id]);
+  await assert.rejects(as(ANA, "insert into accounts (kind, name) values ('crypto', 'X')"), /check constraint/);
+});

@@ -391,3 +391,50 @@ body {
     transition: none;
   }
 }
+
+/* ---- Modal: centred window on wide screens, bottom sheet on phones ---- */
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@layer components {
+  .sheet {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    border: 1px solid var(--glass-line);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    backdrop-filter: blur(24px) saturate(1.5);
+    @apply m-auto max-h-[90dvh] w-[min(42rem,calc(100%-2rem))] overflow-y-auto rounded-3xl p-0;
+  }
+  .sheet[open] {
+    animation: sheet-up 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .sheet::backdrop {
+    background: rgb(15 13 33 / 0.45);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: fade-in 0.25s ease-out;
+  }
+  @media (max-width: 639px) {
+    .sheet {
+      @apply mx-0 mb-0 mt-auto max-h-[92dvh] w-full max-w-none rounded-b-none pb-[env(safe-area-inset-bottom)];
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open],
+  .sheet::backdrop {
+    animation: none;
+  }
+}

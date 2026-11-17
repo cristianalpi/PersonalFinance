@@ -1,42 +1,75 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { saveAccount, type FormState } from "@/app/actions";
-import { KIND_LABEL, type AccountKind } from "@/lib/finance";
+import { isDebt, type AccountKind } from "@/lib/finance";
 import { MoneyInput } from "./money-input";
 
-const KINDS: AccountKind[] = ["savings", "credit_card", "loan"];
+const KINDS: { kind: AccountKind; icon: string; label: string; hint: string }[] = [
+  { kind: "savings", icon: "🏦", label: "Ahorros", hint: "Cuenta en el banco" },
+  { kind: "cash", icon: "💵", label: "Efectivo", hint: "Billetera o alcancía" },
+  { kind: "credit_card", icon: "💳", label: "Tarjeta", hint: "Tarjeta de crédito" },
+  { kind: "loan", icon: "📄", label: "Crédito", hint: "Préstamo con cuotas" },
+];
 
-export function AccountForm({ today }: { today: string }) {
+const PLACEHOLDER: Record<AccountKind, string> = {
+  savings: "Ahorros nómina",
+  cash: "Billetera",
+  credit_card: "Visa oro",
+  loan: "Libre inversión",
+};
+
+/**
+ * New account form. In the modal it starts from the kind tiles; `onSaved` closes
+ * the modal once the account is stored.
+ */
+export function AccountForm({ today, onSaved }: { today: string; onSaved?: () => void }) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveAccount, {});
   const [kind, setKind] = useState<AccountKind>("savings");
-  const debt = kind !== "savings";
+  const debt = isDebt({ kind });
+
+  useEffect(() => {
+    if (state.message) onSaved?.();
+  }, [state, onSaved]);
 
   return (
-    <form action={action} className="card flex flex-col gap-4">
-      <h2 className="display text-2xl">Nueva cuenta</h2>
-      <label className="field">
-        Tipo
-        <select className="input" name="kind" value={kind} onChange={(e) => setKind(e.target.value as AccountKind)}>
+    <form action={action} className="flex flex-col gap-5">
+      <input type="hidden" name="kind" value={kind} />
+      <fieldset>
+        <legend className="field mb-2">¿Qué quieres agregar?</legend>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {KINDS.map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABEL[k]}
-            </option>
+            <button
+              key={k.kind}
+              type="button"
+              aria-pressed={kind === k.kind}
+              onClick={() => setKind(k.kind)}
+              className="flex flex-col items-start gap-1 rounded-2xl border border-line p-3 text-left transition hover:border-brand aria-pressed:border-brand aria-pressed:bg-brand/12 aria-pressed:shadow-[0_8px_24px_-14px_var(--brand)]"
+            >
+              <span aria-hidden="true" className="text-2xl">
+                {k.icon}
+              </span>
+              <span className="font-semibold">{k.label}</span>
+              <span className="text-xs text-ink-3">{k.hint}</span>
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+      </fieldset>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="field">
           Nombre
-          <input className="input" name="name" placeholder={debt ? "Visa oro" : "Ahorros nómina"} required />
+          <input className="input" name="name" placeholder={PLACEHOLDER[kind]} required />
         </label>
+        {kind !== "cash" && (
+          <label className="field">
+            Banco o entidad
+            <input className="input" name="institution" placeholder="Bancolombia, Nu, Davivienda…" />
+          </label>
+        )}
         <label className="field">
-          Banco o entidad
-          <input className="input" name="institution" />
-        </label>
-        <label className="field">
-          {debt ? "Cuánto debes hoy" : "Saldo hoy"}
-          <MoneyInput name="opening_balance" placeholder="$ 1.500.000" required />
+          {debt ? "Cuánto debes hoy" : kind === "cash" ? "Cuánto efectivo tienes hoy" : "Saldo hoy"}
+          <MoneyInput key={kind} name="opening_balance" placeholder="$ 1.500.000" required />
         </label>
         <label className="field">
           Fecha de ese saldo
@@ -80,9 +113,8 @@ export function AccountForm({ today }: { today: string }) {
         )}
       </div>
       {state.error && <p role="alert" className="alert">{state.error}</p>}
-      {state.message && <p role="status" className="text-sm text-ink-2">{state.message}</p>}
-      <button className="btn self-start" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar cuenta"}
+      <button className="btn h-12 text-base" disabled={pending}>
+        {pending ? "Guardando…" : "Agregar cuenta"}
       </button>
     </form>
   );

@@ -33,7 +33,7 @@ export default async function Dashboard() {
         <p className="mt-3 text-ink-2">
           Registra tus cuentas de ahorros, tarjetas y créditos con el saldo de hoy. Desde ahí, cada pago y cada gasto mueve el balance.
         </p>
-        <Link href="/cuentas" className="btn mt-5">
+        <Link href="/cuentas?nueva=1" className="btn mt-5">
           Agregar la primera cuenta
         </Link>
       </section>

@@ -17,7 +17,7 @@ export function TxForm({ accounts, today }: { accounts: AccountOption[]; today: 
   const [state, action, pending] = useActionState<FormState, FormData>(saveTx, {});
   const [kind, setKind] = useState<TxKind>("expense");
   const targets = accounts.filter((a) => allowedTxKinds(a.kind).includes(kind));
-  const savings = accounts.filter((a) => a.kind === "savings");
+  const savings = accounts.filter((a) => a.kind === "savings" || a.kind === "cash");
 
   return (
     <form id="nuevo" action={action} className="card flex scroll-mt-4 flex-col gap-4">

@@ -19,7 +19,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const variable = items.filter((i) => !i.paid && !i.expected).length;
 
   const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
-  const savings = accounts.filter((a) => a.kind === "savings").map(({ id, name }) => ({ id, name }));
+  const savings = accounts.filter((a) => a.kind === "savings" || a.kind === "cash").map(({ id, name }) => ({ id, name }));
 
   return (
     <>

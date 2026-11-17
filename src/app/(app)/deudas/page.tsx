@@ -110,7 +110,7 @@ export default async function DebtsPage() {
       <section className="card max-w-xl">
         <h1 className="display text-3xl">Sin deudas registradas</h1>
         <p className="mt-2 text-ink-2">Cuando agregues una tarjeta de crédito o un crédito, aquí verás cuánto debes, cuánto cupo usas y cuánto te falta.</p>
-        <Link href="/cuentas" className="btn mt-4">
+        <Link href="/cuentas?nueva=1" className="btn mt-4">
           Agregar una tarjeta o crédito
         </Link>
       </section>

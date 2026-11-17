@@ -3,7 +3,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { allowedTxKinds, parsePesos, type AccountKind, type TxKind } from "@/lib/finance";
+import { allowedTxKinds, isDebt, parsePesos, type AccountKind, type TxKind } from "@/lib/finance";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export interface FormState {
@@ -59,7 +59,7 @@ function optionalDay(form: FormData, name: string): number | null | "invalid" {
 export async function saveAccount(_prev: FormState, form: FormData): Promise<FormState> {
   const supabase = await signedIn();
   const kind = text(form, "kind") as AccountKind;
-  if (!["savings", "credit_card", "loan"].includes(kind)) return { error: "Tipo de cuenta no válido." };
+  if (!["savings", "cash", "credit_card", "loan"].includes(kind)) return { error: "Tipo de cuenta no válido." };
   const name = text(form, "name");
   if (!name) return { error: "Ponle un nombre a la cuenta." };
   const opening_balance = parsePesos(text(form, "opening_balance") || "0");
@@ -67,7 +67,7 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
   const opening_date = text(form, "opening_date");
   if (!DATE.test(opening_date)) return { error: "La fecha del saldo no es válida." };
 
-  const debt = kind !== "savings";
+  const debt = isDebt({ kind });
   const statement_day = kind === "credit_card" ? optionalDay(form, "statement_day") : null;
   const due_day = debt ? optionalDay(form, "due_day") : null;
   if (statement_day === "invalid" || due_day === "invalid") return { error: "Los días deben estar entre 1 y 31." };
@@ -93,7 +93,9 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
     return {
       error: /column .* does not exist|schema cache/i.test(error.message)
         ? "Falta ejecutar la migración 0004 en Supabase."
-        : `No se pudo guardar: ${error.message}`,
+        : /accounts_kind_check/.test(error.message)
+          ? "Para registrar efectivo falta ejecutar la migración 0005 en Supabase."
+          : `No se pudo guardar: ${error.message}`,
     };
   }
   revalidatePath("/", "layout");
@@ -128,7 +130,7 @@ export async function saveTx(_prev: FormState, form: FormData): Promise<FormStat
     source_account_id = text(form, "source_account_id") || null;
     if (source_account_id) {
       const { data: source } = await supabase.from("accounts").select("kind").eq("id", source_account_id).maybeSingle();
-      if (source?.kind !== "savings") return { error: "El pago debe salir de una cuenta de ahorros." };
+      if (!source || isDebt(source)) return { error: "El pago debe salir de una cuenta de ahorros o de tu efectivo." };
     }
   }
 
@@ -270,10 +272,10 @@ export async function markPaid(_prev: FormState, form: FormData): Promise<FormSt
     if (error) return { error: `No se pudo guardar: ${error.message}` };
   } else {
     const { data: debt } = await supabase.from("accounts").select("kind").eq("id", id).maybeSingle();
-    if (!debt || debt.kind === "savings") return { error: "Esa deuda ya no existe." };
+    if (!debt || !isDebt(debt)) return { error: "Esa deuda ya no existe." };
     if (account_id) {
       const { data: source } = await supabase.from("accounts").select("kind").eq("id", account_id).maybeSingle();
-      if (source?.kind !== "savings") return { error: "El pago debe salir de una cuenta de ahorros." };
+      if (!source || isDebt(source)) return { error: "El pago debe salir de una cuenta de ahorros o de tu efectivo." };
     }
     const { error } = await supabase
       .from("transactions")
@@ -318,7 +320,7 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
   const logo = text(form, "logo") || null;
   if (logo && (!LOGO.test(logo) || logo.length > 150000)) return { error: "La imagen no es válida o es muy grande." };
 
-  const debt = kind !== "savings";
+  const debt = isDebt({ kind });
   const statement_day = kind === "credit_card" ? optionalDay(form, "statement_day") : null;
   const due_day = debt ? optionalDay(form, "due_day") : null;
   if (statement_day === "invalid" || due_day === "invalid") return { error: "Los días deben estar entre 1 y 31." };

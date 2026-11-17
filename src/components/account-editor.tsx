@@ -150,7 +150,7 @@ export function AccountEditor({ account }: { account: Account }) {
             Banco o entidad
             <input className="input" name="institution" value={institution} onChange={(e) => setInstitution(e.target.value)} />
           </label>
-          {account.kind !== "loan" && (
+          {(account.kind === "savings" || account.kind === "credit_card") && (
             <label className="field">
               Últimos 4 dígitos (opcional)
               <input

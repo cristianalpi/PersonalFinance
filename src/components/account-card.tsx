@@ -35,7 +35,7 @@ export function AccountCard({
       className="display flex size-10 shrink-0 items-center justify-center rounded-xl text-sm"
       style={{ background: light ? "rgba(255,255,255,0.22)" : "rgba(20,17,46,0.12)" }}
     >
-      {initials(mark)}
+      {account.kind === "cash" ? <span className="text-xl">💵</span> : initials(mark)}
     </span>
   );
 
@@ -65,7 +65,7 @@ export function AccountCard({
           ) : (
             monogram
           )}
-          <span className="truncate text-sm font-semibold">{account.institution ?? KIND_LABEL[account.kind]}</span>
+          {account.institution && <span className="truncate text-sm font-semibold">{account.institution}</span>}
         </div>
         <span
           className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"

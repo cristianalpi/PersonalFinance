@@ -59,8 +59,12 @@ function hash(text: string): number {
 }
 
 /** The colour a card is drawn with: the user's choice, else the bank's, else one picked from its name. */
-export function cardColor(account: { color?: string | null; institution: string | null; name: string }): string {
-  return account.color ?? bankColor(account.institution) ?? CARD_COLORS[hash(account.name) % CARD_COLORS.length];
+export const CASH_COLOR = "#15803D";
+
+export function cardColor(account: { color?: string | null; institution: string | null; name: string; kind?: string }): string {
+  if (account.color) return account.color;
+  if (account.kind === "cash") return CASH_COLOR;
+  return bankColor(account.institution) ?? CARD_COLORS[hash(account.name) % CARD_COLORS.length];
 }
 
 function channel(c: number): number {

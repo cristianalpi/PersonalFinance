@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  allowedTxKinds,
   balanceAt,
   billStatus,
   monthlyChecklist,
@@ -8,6 +9,7 @@ import {
   shiftMonth,
   nextDueDate,
   dueDates,
+  isDebt,
   parsePesos,
   parseWalletAmount,
   spendingByCategory,
@@ -194,4 +196,17 @@ test("monthlyChecklist does not list a bill in months before it was registered",
   const bill = { id: "gym", name: "Gimnasio", amount: 80_000, due_day: 3, category: null, created_at: "2026-11-15T20:00:00Z" };
   assert.equal(monthlyChecklist([], [bill], [], "2026-10", "2026-11-15").length, 0);
   assert.equal(monthlyChecklist([], [bill], [], "2026-11", "2026-11-15").length, 1);
+});
+
+test("cash works like savings: holds money, takes income and expenses, can fund a debt payment", () => {
+  const billetera: Account = { ...ahorros, id: "e", kind: "cash", name: "Billetera", opening_balance: 300_000 };
+  const moves = [
+    tx({ account_id: "e", kind: "income", amount: 200_000, occurred_on: "2026-11-01" }),
+    tx({ account_id: "e", kind: "expense", amount: 50_000, occurred_on: "2026-11-02" }),
+    tx({ account_id: "t", source_account_id: "e", kind: "payment", amount: 100_000, occurred_on: "2026-11-03" }),
+  ];
+  assert.equal(balanceAt(billetera, moves), 350_000);
+  assert.deepEqual(totals([billetera], moves), { savings: 350_000, debt: 0, net: 350_000 });
+  assert.equal(isDebt(billetera), false);
+  assert.deepEqual(allowedTxKinds("cash"), ["income", "expense"]);
 });

@@ -1,22 +1,34 @@
 import Link from "next/link";
 import { deleteAccount } from "@/app/actions";
 import { AccountCard } from "@/components/account-card";
-import { AccountForm } from "@/components/account-form";
+import { AddAccount } from "@/components/add-account";
 import { UsageBar } from "@/components/usage-bar";
 import { loadData } from "@/lib/data";
-import { balanceAt, formatCOP, type AccountKind } from "@/lib/finance";
+import { balanceAt, formatCOP, holdsMoney, type AccountKind } from "@/lib/finance";
 
 const GROUPS: { kind: AccountKind; title: string }[] = [
   { kind: "savings", title: "Cuentas de ahorros" },
+  { kind: "cash", title: "Efectivo" },
   { kind: "credit_card", title: "Tarjetas de crédito" },
   { kind: "loan", title: "Créditos" },
 ];
 
-export default async function AccountsPage() {
+export default async function AccountsPage({ searchParams }: { searchParams: Promise<{ nueva?: string }> }) {
   const { accounts, txs, today } = await loadData();
+  const autoOpen = (await searchParams).nueva === "1";
   return (
     <>
-      <h1 className="display pt-2 text-3xl">Cuentas</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <h1 className="display text-3xl">Cuentas</h1>
+        <AddAccount today={today} autoOpen={autoOpen} />
+      </div>
+
+      {accounts.length === 0 && (
+        <section className="card max-w-xl">
+          <p className="display text-xl">Aún no tienes cuentas</p>
+          <p className="mt-1 text-ink-2">Agrega tus cuentas de ahorros, tu efectivo, tus tarjetas y tus créditos con el saldo de hoy.</p>
+        </section>
+      )}
 
       {GROUPS.map(({ kind, title }) => {
         const group = accounts.filter((a) => a.kind === kind);
@@ -30,7 +42,7 @@ export default async function AccountsPage() {
                 return (
                   <li key={account.id} className="rise flex flex-col gap-2" style={{ "--i": i } as React.CSSProperties}>
                     <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-1" aria-label={`Ver ${account.name}`}>
-                      <AccountCard account={account} balance={Math.max(0, balance)} caption={kind === "savings" ? "Saldo" : "Lo que debes"}>
+                      <AccountCard account={account} balance={Math.max(0, balance)} caption={holdsMoney(account) ? "Saldo" : "Lo que debes"}>
                         {kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
                       </AccountCard>
                     </Link>
@@ -55,7 +67,6 @@ export default async function AccountsPage() {
         );
       })}
 
-      <AccountForm today={today} />
     </>
   );
 }

@@ -1,7 +1,7 @@
 // Pure balance logic. No framework imports, so it runs under `node --test`.
 // Dates are 'YYYY-MM-DD' strings throughout to stay clear of timezone shifts.
 
-export type AccountKind = "savings" | "credit_card" | "loan";
+export type AccountKind = "savings" | "cash" | "credit_card" | "loan";
 export type TxKind = "income" | "expense" | "payment";
 
 export interface Account {
@@ -41,6 +41,7 @@ export interface Tx {
 
 export const KIND_LABEL: Record<AccountKind, string> = {
   savings: "Cuenta de ahorros",
+  cash: "Efectivo",
   credit_card: "Tarjeta de crédito",
   loan: "Crédito",
 };
@@ -67,11 +68,14 @@ export function txIcon(tx: Pick<Tx, "kind" | "category">): string {
   return CATEGORY_ICON[tx.category?.trim().toLowerCase() ?? ""] ?? "🧾";
 }
 
-export const isDebt = (account: Pick<Account, "kind">) => account.kind !== "savings";
+export const isDebt = (account: Pick<Account, "kind">) => account.kind === "credit_card" || account.kind === "loan";
+
+/** Money you hold: savings accounts and cash. They receive income and can fund payments to debts. */
+export const holdsMoney = (account: Pick<Account, "kind">) => !isDebt(account);
 
 /** Which movement kinds may be recorded directly on an account of this kind. */
 export function allowedTxKinds(kind: AccountKind): TxKind[] {
-  return kind === "savings" ? ["income", "expense"] : ["expense", "payment"];
+  return kind === "savings" || kind === "cash" ? ["income", "expense"] : ["expense", "payment"];
 }
 
 /**
@@ -81,7 +85,7 @@ export function allowedTxKinds(kind: AccountKind): TxKind[] {
  */
 export function effect(account: Account, tx: Tx): number {
   if (tx.account_id === account.id) {
-    if (account.kind === "savings") {
+    if (holdsMoney(account)) {
       if (tx.kind === "income") return tx.amount;
       if (tx.kind === "expense") return -tx.amount;
       return 0;
