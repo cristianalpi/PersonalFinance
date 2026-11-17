@@ -1,33 +1,55 @@
 // Card colours. A bank's colour is only a hint so cards are told apart at a
 // glance; the user can pick another colour or upload the bank's image.
 
-const BANK_COLORS: [RegExp, string][] = [
-  [/bancolombia/i, "#FDDA24"],
-  [/davivienda|daviplata/i, "#E30613"],
-  [/bbva/i, "#004481"],
-  [/banco de bogot[aá]|bogot[aá]/i, "#003B71"],
-  [/occidente/i, "#0060A9"],
-  [/popular/i, "#00843D"],
-  [/av ?villas/i, "#1F4E9E"],
-  [/colpatria|scotiabank/i, "#EC111A"],
-  [/ita[uú]/i, "#EC7000"],
-  [/\bnu\b|nubank/i, "#820AD1"],
-  [/nequi/i, "#DA0081"],
-  [/falabella/i, "#2F9E44"],
-  [/caja social/i, "#00539F"],
-  [/lulo/i, "#00B894"],
-  [/rappi/i, "#FF441F"],
-  [/pichincha/i, "#F2C500"],
-  [/gnb|sudameris/i, "#003A70"],
-  [/agrario/i, "#00753E"],
+interface Bank {
+  key: string;
+  pattern: RegExp;
+  color: string;
+  /** The bank's public website, used to fetch its icon. */
+  domain: string;
+}
+
+const BANKS: Bank[] = [
+  { key: "bancolombia", pattern: /bancolombia/i, color: "#FDDA24", domain: "bancolombia.com" },
+  { key: "daviplata", pattern: /daviplata/i, color: "#E30613", domain: "daviplata.com" },
+  { key: "davivienda", pattern: /davivienda/i, color: "#E30613", domain: "davivienda.com" },
+  { key: "bbva", pattern: /bbva/i, color: "#004481", domain: "bbva.com.co" },
+  { key: "bogota", pattern: /banco de bogot[aá]|bogot[aá]/i, color: "#003B71", domain: "bancodebogota.com" },
+  { key: "occidente", pattern: /occidente/i, color: "#0060A9", domain: "bancodeoccidente.com.co" },
+  { key: "popular", pattern: /popular/i, color: "#00843D", domain: "bancopopular.com.co" },
+  { key: "avvillas", pattern: /av ?villas/i, color: "#1F4E9E", domain: "avvillas.com.co" },
+  { key: "colpatria", pattern: /colpatria|scotiabank/i, color: "#EC111A", domain: "scotiabankcolpatria.com" },
+  { key: "itau", pattern: /ita[uú]/i, color: "#EC7000", domain: "itau.co" },
+  { key: "nu", pattern: /\bnu\b|nubank/i, color: "#820AD1", domain: "nu.com.co" },
+  { key: "nequi", pattern: /nequi/i, color: "#DA0081", domain: "nequi.com.co" },
+  { key: "falabella", pattern: /falabella/i, color: "#2F9E44", domain: "bancofalabella.com.co" },
+  { key: "cajasocial", pattern: /caja social/i, color: "#00539F", domain: "bancocajasocial.com" },
+  { key: "lulo", pattern: /lulo/i, color: "#00B894", domain: "lulobank.com" },
+  { key: "rappi", pattern: /rappi/i, color: "#FF441F", domain: "rappipay.co" },
+  { key: "pichincha", pattern: /pichincha/i, color: "#F2C500", domain: "bancopichincha.com.co" },
+  { key: "gnb", pattern: /gnb|sudameris/i, color: "#003A70", domain: "gnbsudameris.com.co" },
+  { key: "agrario", pattern: /agrario/i, color: "#00753E", domain: "bancoagrario.gov.co" },
 ];
+
+function findBank(institution: string | null | undefined): Bank | undefined {
+  return institution ? BANKS.find((b) => b.pattern.test(institution)) : undefined;
+}
+
+/** Key of a known bank, for its automatic logo; null when the name matches none. */
+export function bankKey(institution: string | null | undefined): string | null {
+  return findBank(institution)?.key ?? null;
+}
+
+/** Website of a known bank by key. Only these domains are ever fetched, never one the user types. */
+export function bankDomain(key: string): string | null {
+  return BANKS.find((b) => b.key === key)?.domain ?? null;
+}
 
 /** Colours offered in the picker when there is no bank colour, and used as defaults. */
 export const CARD_COLORS = ["#6D4AFF", "#0F9488", "#E5533D", "#2563EB", "#DB2777", "#D97706", "#16A34A", "#334155"];
 
 export function bankColor(institution: string | null | undefined): string | null {
-  if (!institution) return null;
-  return BANK_COLORS.find(([pattern]) => pattern.test(institution))?.[1] ?? null;
+  return findBank(institution)?.color ?? null;
 }
 
 function hash(text: string): number {

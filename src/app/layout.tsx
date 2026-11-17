@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/plus-jakarta-sans";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,9 +19,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The chosen theme comes in a cookie, so the first paint already has the right colours.
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang="es-CO" className="h-full antialiased">
+    <html lang="es-CO" className="h-full antialiased" data-theme={theme === "system" ? undefined : theme}>
       <body className="min-h-full font-sans">{children}</body>
     </html>
   );

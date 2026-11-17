@@ -1,7 +1,9 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { clearWalletName } from "@/app/actions";
+import { ThemePicker } from "@/components/theme-toggle";
 import { TokenCard } from "@/components/token-card";
 import { loadData } from "@/lib/data";
+import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 
 export default async function SettingsPage() {
   const { supabase, accounts } = await loadData();
@@ -14,6 +16,14 @@ export default async function SettingsPage() {
   return (
     <>
       <h1 className="display pt-2 text-3xl">Ajustes</h1>
+
+      <section className="card flex flex-col gap-4">
+        <div>
+          <h2 className="display text-2xl">Apariencia</h2>
+          <p className="text-sm text-ink-3">También puedes cambiarla con el botón de sol y luna de arriba.</p>
+        </div>
+        <ThemePicker initial={parseTheme((await cookies()).get(THEME_COOKIE)?.value)} />
+      </section>
 
       <section className="card flex flex-col gap-4">
         <div>

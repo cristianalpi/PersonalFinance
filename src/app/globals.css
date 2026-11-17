@@ -31,8 +31,9 @@
     radial-gradient(44rem 36rem at 0% 100%, rgb(18 179 166 / 0.18), transparent 60%);
 }
 
+/* Dark theme: follows the system unless the person picked one in the app (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #0f0d21;
     --surface: #1a1733;
@@ -56,6 +57,31 @@
       radial-gradient(48rem 40rem at 90% 100%, rgb(239 95 60 / 0.18), transparent 60%),
       radial-gradient(44rem 36rem at 0% 100%, rgb(20 169 153 / 0.2), transparent 60%);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0d21;
+  --surface: #1a1733;
+  --glass: rgb(40 36 78 / 0.5);
+  --glass-line: rgb(255 255 255 / 0.1);
+  --line: #2e2a55;
+  --ink: #f3f1ff;
+  --ink-2: #c5c1e8;
+  --ink-3: #9f9bc6;
+  --brand: #8f75ff;
+  --brand-2: #d06bff;
+  --savings: #14a999;
+  --savings-2: #36bfe6;
+  --debt: #ef5f3c;
+  --debt-2: #f7a04a;
+  --warn: #f0a52a;
+  --shadow: 0 18px 50px -24px rgb(0 0 0 / 0.7);
+  --aurora:
+    radial-gradient(60rem 40rem at -10% -10%, rgb(109 74 255 / 0.32), transparent 60%),
+    radial-gradient(50rem 36rem at 110% 0%, rgb(34 150 200 / 0.24), transparent 60%),
+    radial-gradient(48rem 40rem at 90% 100%, rgb(239 95 60 / 0.18), transparent 60%),
+    radial-gradient(44rem 36rem at 0% 100%, rgb(20 169 153 / 0.2), transparent 60%);
 }
 
 @theme inline {

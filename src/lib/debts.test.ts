@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bankColor, cardColor, cardInk, contrast, initials } from "./banks.ts";
+import { bankColor, bankDomain, bankKey, cardColor, cardInk, contrast, initials } from "./banks.ts";
 import { debtView, payFirst, usageLevel } from "./debts.ts";
 import { formatPesosInput, txIcon, type Account, type Tx } from "./finance.ts";
 
@@ -83,4 +83,12 @@ test("movement icons by category and kind", () => {
   assert.equal(txIcon({ kind: "expense", category: "Mascotas" }), "🧾");
   assert.equal(txIcon({ kind: "income", category: null }), "💰");
   assert.equal(txIcon({ kind: "payment", category: null }), "💳");
+});
+
+test("automatic logos only for known banks, and only from their listed websites", () => {
+  assert.equal(bankKey("Davivienda"), "davivienda");
+  assert.equal(bankKey("DaviPlata"), "daviplata", "DaviPlata is not mistaken for Davivienda");
+  assert.equal(bankKey("Mi cooperativa"), null);
+  assert.equal(bankDomain("bancolombia"), "bancolombia.com");
+  assert.equal(bankDomain("evil.com"), null);
 });

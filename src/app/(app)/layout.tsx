@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Nav } from "@/components/nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../actions";
 
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Nav pending={count ?? 0} />
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {/* On phones Ajustes is not in the tab bar, so it lives here. */}
           <Link href="/ajustes" className="btn-quiet size-10 p-0 sm:hidden" aria-label="Ajustes">
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">

@@ -1,4 +1,5 @@
-import { cardColor, cardInk, initials, shade } from "@/lib/banks";
+import { bankKey, cardColor, cardInk, initials, shade } from "@/lib/banks";
+import { BankLogo } from "./bank-logo";
 import { KIND_LABEL, formatCOP, type Account } from "@/lib/finance";
 
 type CardAccount = Pick<Account, "kind" | "name" | "institution" | "color" | "last4" | "logo">;
@@ -26,6 +27,17 @@ export function AccountCard({
   const light = ink === "#FFFFFF";
   const mark = account.institution || account.name;
   const big = size === "lg";
+  // Uploaded image first; then the bank's own icon when the bank is known; else initials.
+  const bank = bankKey(account.institution);
+  const monogram = (
+    <span
+      aria-hidden="true"
+      className="display flex size-10 shrink-0 items-center justify-center rounded-xl text-sm"
+      style={{ background: light ? "rgba(255,255,255,0.22)" : "rgba(20,17,46,0.12)" }}
+    >
+      {initials(mark)}
+    </span>
+  );
 
   return (
     <div
@@ -48,14 +60,10 @@ export function AccountCard({
           {account.logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- a small data URL the user uploaded; nothing to optimise
             <img src={account.logo} alt="" className="size-10 shrink-0 rounded-xl bg-white object-contain p-1 shadow-sm" />
+          ) : bank ? (
+            <BankLogo key={bank} bank={bank} fallback={monogram} />
           ) : (
-            <span
-              aria-hidden="true"
-              className="display flex size-10 shrink-0 items-center justify-center rounded-xl text-sm"
-              style={{ background: light ? "rgba(255,255,255,0.22)" : "rgba(20,17,46,0.12)" }}
-            >
-              {initials(mark)}
-            </span>
+            monogram
           )}
           <span className="truncate text-sm font-semibold">{account.institution ?? KIND_LABEL[account.kind]}</span>
         </div>

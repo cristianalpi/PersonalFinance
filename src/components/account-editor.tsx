@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { updateAccount, type FormState } from "@/app/actions";
-import { CARD_COLORS, bankColor, cardColor } from "@/lib/banks";
+import { CARD_COLORS, bankColor, bankKey, cardColor } from "@/lib/banks";
 import type { Account } from "@/lib/finance";
 import { AccountCard } from "./account-card";
 import { MoneyInput } from "./money-input";
@@ -34,7 +34,9 @@ export function AccountEditor({ account }: { account: Account }) {
   const [color, setColor] = useState<string | null>(account.color ?? null);
   const [logo, setLogo] = useState<string | null>(account.logo ?? null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const autoLogo = bankKey(institution);
 
   const suggested = bankColor(institution);
   const swatches = [...new Set([suggested, ...CARD_COLORS].filter(Boolean) as string[])];
@@ -43,16 +45,29 @@ export function AccountEditor({ account }: { account: Account }) {
   const isCard = account.kind === "credit_card";
   const isLoan = account.kind === "loan";
 
-  async function pickImage(file: File | undefined) {
+  async function pickImage(file: File | undefined | null) {
     setImageError(null);
     if (!file) return;
-    if (!/^image\/(png|jpeg|webp|heic|heif)$/.test(file.type)) return setImageError("Usa una imagen PNG, JPG o WebP.");
+    if (!/^image\/(png|jpeg|webp|heic|heif|gif)$/.test(file.type)) return setImageError("Usa una imagen PNG, JPG o WebP.");
     try {
       setLogo(await toSmallDataUrl(file));
     } catch {
       setImageError("No se pudo leer esa imagen. Prueba con otra.");
     }
   }
+
+  // Pasting an image anywhere while the editor is open uses it as the card's image.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith("image/"));
+      if (file) {
+        e.preventDefault();
+        pickImage(file);
+      }
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
 
   return (
     <form action={action} className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]">
@@ -61,7 +76,37 @@ export function AccountEditor({ account }: { account: Account }) {
       <input type="hidden" name="logo" value={logo ?? ""} />
 
       <div className="flex flex-col gap-3">
-        <AccountCard account={preview} caption="Vista previa" />
+        {/* The preview is also the drop target, and its logo spot opens the file picker. */}
+        <div
+          className={`relative rounded-3xl transition ${dragging ? "scale-[1.02] ring-4 ring-brand" : ""}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            pickImage(e.dataTransfer.files?.[0]);
+          }}
+        >
+          <AccountCard account={preview} caption="Vista previa" />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="absolute left-3 top-3 flex size-14 items-end justify-end rounded-2xl ring-2 ring-white/70 ring-offset-0 transition hover:bg-white/10 sm:left-4 sm:top-4"
+            aria-label="Cambiar la imagen de la tarjeta"
+          >
+            <span aria-hidden="true" className="flex size-6 translate-x-1.5 translate-y-1.5 items-center justify-center rounded-full bg-white text-xs text-[#14112E] shadow">
+              ✎
+            </span>
+          </button>
+          {dragging && (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-3xl bg-brand/70 text-sm font-semibold text-white">
+              Suelta la imagen aquí
+            </p>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Color de la tarjeta">
           {swatches.map((hex) => (
             <button
@@ -80,16 +125,19 @@ export function AccountEditor({ account }: { account: Account }) {
         <div className="flex flex-wrap items-center gap-2">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/heic" className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} />
           <button type="button" className="btn-quiet" onClick={() => fileRef.current?.click()}>
-            {logo ? "Cambiar imagen" : "Subir imagen del banco"}
+            {logo ? "Cambiar imagen" : "Subir mi imagen"}
           </button>
           {logo && (
             <button type="button" className="text-sm text-ink-3 hover:text-ink" onClick={() => setLogo(null)}>
-              Quitar imagen
+              {autoLogo ? "Volver al logo automático" : "Quitar imagen"}
             </button>
           )}
         </div>
         {imageError && <p role="alert" className="alert">{imageError}</p>}
-        <p className="text-xs text-ink-3">Se guarda reducida a 160 px, solo en tu cuenta.</p>
+        <p className="text-xs text-ink-3">
+          {autoLogo && !logo ? "Usa el logo de tu banco automáticamente. " : ""}
+          Para poner otra imagen, toca el logo de la tarjeta, arrástrala encima o pégala con Ctrl+V. Se guarda reducida a 160 px.
+        </p>
       </div>
 
       <div className="flex flex-col gap-4">
