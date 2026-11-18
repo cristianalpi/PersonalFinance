@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/plus-jakarta-sans";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
-import { THEME_COOKIE, parseTheme } from "@/lib/theme";
+import { SCALE_COOKIE, THEME_COOKIE, parseScale, parseTheme } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,9 +25,11 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // The chosen theme comes in a cookie, so the first paint already has the right colours.
-  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const jar = await cookies();
+  const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
+  const scale = parseScale(jar.get(SCALE_COOKIE)?.value);
   return (
-    <html lang="es-CO" className="h-full antialiased" data-theme={theme === "system" ? undefined : theme}>
+    <html lang="es-CO" className="h-full antialiased" data-theme={theme === "system" ? undefined : theme} data-scale={scale === "std" ? undefined : scale}>
       <body className="min-h-full font-sans">{children}</body>
     </html>
   );

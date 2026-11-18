@@ -13,7 +13,7 @@ export function BalanceBeam({ savings, debt, previousNet }: { savings: number; d
   const diff = previousNet === null ? null : net - previousNet;
 
   return (
-    <section aria-labelledby="balance-title" className="card flex h-full flex-col justify-between gap-8">
+    <section aria-labelledby="balance-title" className="card @container flex h-full flex-col justify-between gap-8">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <h1 id="balance-title" className="eyebrow">
@@ -25,7 +25,7 @@ export function BalanceBeam({ savings, debt, previousNet }: { savings: number; d
             </span>
           )}
         </div>
-        <p className="display mt-2 text-[clamp(2rem,12vw,3rem)] leading-none sm:text-7xl">
+        <p className="hero-number display mt-2 leading-none" style={{ "--chars": formatCOP(net).length } as React.CSSProperties}>
           <AnimatedNumber value={net} from={previousNet ?? net} />
         </p>
         <p className="mt-3 text-ink-2">{net >= 0 ? "Tienes más de lo que debes." : "Debes más de lo que tienes."}</p>

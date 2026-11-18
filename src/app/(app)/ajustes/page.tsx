@@ -1,10 +1,10 @@
 import { cookies, headers } from "next/headers";
 import { clearWalletName, signOut } from "@/app/actions";
 import { InstallCard } from "@/components/install-card";
-import { ThemePicker } from "@/components/theme-toggle";
+import { ScalePicker, ThemePicker } from "@/components/theme-toggle";
 import { TokenCard } from "@/components/token-card";
 import { loadData } from "@/lib/data";
-import { THEME_COOKIE, parseTheme } from "@/lib/theme";
+import { SCALE_COOKIE, THEME_COOKIE, parseScale, parseTheme } from "@/lib/theme";
 
 export default async function SettingsPage() {
   const { supabase, accounts, user } = await loadData();
@@ -26,6 +26,14 @@ export default async function SettingsPage() {
           <p className="text-sm text-ink-3">También puedes cambiarla con el botón de sol y luna de arriba.</p>
         </div>
         <ThemePicker initial={parseTheme((await cookies()).get(THEME_COOKIE)?.value)} />
+      </section>
+
+      <section className="card flex flex-col gap-4">
+        <div>
+          <h2 className="display text-2xl">Tamaño</h2>
+          <p className="text-sm text-ink-3">Cambia el tamaño de la letra y de todo lo demás. Se guarda en este dispositivo.</p>
+        </div>
+        <ScalePicker initial={parseScale((await cookies()).get(SCALE_COOKIE)?.value)} />
       </section>
 
       <section className="card flex flex-col gap-4">

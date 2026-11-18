@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { applyTheme, isDark, type ThemeChoice } from "@/lib/theme";
+import { applyScale, applyTheme, isDark, type ScaleChoice, type ThemeChoice } from "@/lib/theme";
 
 function subscribe(onChange: () => void) {
   const media = matchMedia("(prefers-color-scheme: dark)");
@@ -68,6 +68,44 @@ export function ThemePicker({ initial }: { initial: ThemeChoice }) {
         >
           <span className="block font-semibold">{o.label}</span>
           <span className="block text-sm text-ink-3">{o.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const SCALES: { value: ScaleChoice; label: string; sample: number }[] = [
+  { value: "sm", label: "Pequeño", sample: 0.8125 },
+  { value: "md", label: "Mediano", sample: 0.9 },
+  { value: "std", label: "Estándar", sample: 1 },
+  { value: "lg", label: "Grande", sample: 1.125 },
+];
+
+/** Text and interface size. The preview «Aa» shows each size relative to the standard one. */
+export function ScalePicker({ initial }: { initial: ScaleChoice }) {
+  const choice = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("scalechange", cb);
+      return () => window.removeEventListener("scalechange", cb);
+    },
+    () => (document.documentElement.dataset.scale as ScaleChoice | undefined) ?? "std",
+    () => initial,
+  );
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Tamaño del texto">
+      {SCALES.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={choice === o.value}
+          onClick={() => applyScale(o.value)}
+          className="flex items-baseline justify-between gap-2 rounded-2xl border border-line p-4 text-left transition-colors hover:border-brand aria-checked:border-brand aria-checked:bg-brand/12"
+        >
+          <span className="font-semibold">{o.label}</span>
+          <span aria-hidden="true" className="display text-ink-3" style={{ fontSize: `${Math.round(22 * o.sample)}px` }}>
+            Aa
+          </span>
         </button>
       ))}
     </div>

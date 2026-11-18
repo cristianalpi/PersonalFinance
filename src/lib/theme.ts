@@ -26,3 +26,20 @@ export function isDark(): boolean {
   const set = document.documentElement.dataset.theme;
   return set ? set === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
 }
+
+// Text and interface size. Everything is sized in rem, so changing the root
+// font size scales type, spacing and controls together.
+export type ScaleChoice = "sm" | "md" | "std" | "lg";
+export const SCALE_COOKIE = "scale";
+
+export function parseScale(value: string | undefined): ScaleChoice {
+  return value === "sm" || value === "md" || value === "lg" ? value : "std";
+}
+
+export function applyScale(choice: ScaleChoice) {
+  const root = document.documentElement;
+  if (choice === "std") delete root.dataset.scale;
+  else root.dataset.scale = choice;
+  document.cookie = `${SCALE_COOKIE}=${choice}; path=/; max-age=31536000; samesite=lax`;
+  window.dispatchEvent(new Event("scalechange"));
+}

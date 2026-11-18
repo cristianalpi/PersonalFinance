@@ -102,6 +102,17 @@
     radial-gradient(44rem 36rem at 0% 100%, rgb(20 169 153 / 0.2), transparent 60%);
 }
 
+/* Interface size (Ajustes → Tamaño). Everything is in rem, so it all scales together. */
+html[data-scale="sm"] {
+  font-size: 81.25%;
+}
+html[data-scale="md"] {
+  font-size: 90%;
+}
+html[data-scale="lg"] {
+  font-size: 112.5%;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -174,7 +185,20 @@ body {
   }
   .input {
     background: color-mix(in srgb, var(--surface) 70%, transparent);
-    @apply w-full rounded-xl border border-line px-3.5 py-2.5 text-base font-normal text-ink outline-none transition-colors focus:border-brand;
+    @apply w-full min-w-0 rounded-xl border border-line px-3.5 py-2.5 text-base font-normal text-ink outline-none transition-colors focus:border-brand;
+    /* iPhone zooms into any field under 16 px, so fields never go smaller, whatever the size setting. */
+    font-size: max(1rem, 16px);
+  }
+  /* Safari gives date and month fields a native width that ignores w-full and spills out of the card. */
+  .input[type="date"],
+  .input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-height: calc(1.5em + 1.25rem + 2px);
+  }
+  .input::-webkit-date-and-time-value {
+    text-align: left;
   }
   .btn {
     background: linear-gradient(135deg, #6d4aff, #9a34e6);
@@ -656,5 +680,16 @@ body {
   ::view-transition-group(*) {
     animation-duration: 0s !important;
     animation-delay: 0s !important;
+  }
+}
+
+/* The hero balance always fits on one line: its size follows the card width and the number of characters. */
+.hero-number {
+  white-space: nowrap;
+  font-size: min(3rem, calc(100cqi / var(--chars) / 0.6));
+}
+@media (min-width: 640px) {
+  .hero-number {
+    font-size: min(4.5rem, calc(100cqi / var(--chars) / 0.6));
   }
 }
