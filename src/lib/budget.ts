@@ -16,6 +16,8 @@ export interface Income {
   day: number;
   /** Months (1–12) when it arrives; null = every month. */
   months: number[] | null;
+  /** 'YYYY-MM' for a one-time income (overtime, a bonus); it shows only that month. */
+  once_month?: string | null;
   account_id: string | null;
 }
 
@@ -56,8 +58,8 @@ export function budgetViews(budgets: Budget[], txs: Tx[], month: string, today: 
     .sort((a, b) => b.share - a.share);
 }
 
-export const arrivesIn = (income: Pick<Income, "months">, month: string) =>
-  !income.months || income.months.includes(Number(month.slice(5, 7)));
+export const arrivesIn = (income: Pick<Income, "months" | "once_month">, month: string) =>
+  income.once_month ? income.once_month === month : !income.months || income.months.includes(Number(month.slice(5, 7)));
 
 export interface IncomeItem {
   type: "income";
@@ -71,6 +73,8 @@ export interface IncomeItem {
   late: boolean;
   skipped: Skip | null;
   accountId: string | null;
+  /** A one-time extra rather than a recurring income. */
+  once: boolean;
 }
 
 /** The month's scheduled incomes, ticked when a movement with that income_id lands in the month. */
@@ -92,6 +96,7 @@ export function incomeChecklist(incomes: Income[], txs: Tx[], month: string, tod
         late: got.length === 0 && !skipped && due < today,
         skipped,
         accountId: i.account_id,
+        once: Boolean(i.once_month),
       };
     })
     .sort((a, b) => a.due.localeCompare(b.due) || a.name.localeCompare(b.name));

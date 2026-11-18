@@ -163,3 +163,9 @@ test("incomes: months must be real months; a received income must be one's own",
   const [beto] = await as(BETO, "insert into incomes (name, day) values ('Ajeno', 1) returning id");
   await assert.rejects(as(ANA, "insert into transactions (account_id, kind, amount, income_id) values ($1, 'income', 1, $2)", [cash.id, beto.id]), /row-level security/);
 });
+
+test("incomes: a one-time income has one month, never a yearly pattern too", async () => {
+  await as(ANA, "insert into incomes (name, amount, day, once_month) values ('Horas extra', 450000, 30, '2026-12')");
+  await assert.rejects(as(ANA, "insert into incomes (name, day, once_month) values ('X', 1, '2026-13')"), /check constraint/);
+  await assert.rejects(as(ANA, "insert into incomes (name, day, once_month, months) values ('X', 1, '2026-12', '{12}')"), /check constraint/);
+});

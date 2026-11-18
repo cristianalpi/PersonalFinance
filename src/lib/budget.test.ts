@@ -119,3 +119,12 @@ test("advisor context lists incomes, budgets, skips and the month split", async 
   assert.match(text, /Ocio: \$\s?200\.000 de \$\s?1\.200\.000/);
   assert.match(text, /libre \$\s?6\.300\.000/);
 });
+
+test("incomes: a one-time extra shows only in its month and adds to that month's plan", () => {
+  const extra: Income = { id: "ext", name: "Horas extra", amount: 450_000, day: 30, months: null, once_month: "2026-12", account_id: "bank" };
+  assert.deepEqual(incomeChecklist([salary, extra], [], "2026-11", "2026-11-17").map((i) => i.id), ["sal"]);
+  const dec = incomeChecklist([salary, extra], [], "2026-12", "2026-12-01");
+  assert.deepEqual(dec.map((i) => [i.id, i.once]), [["ext", true], ["sal", false]]);
+  assert.equal(monthPlan(dec, [], []).income, 7_500_000 + 450_000);
+  assert.equal(incomeChecklist([extra], [], "2027-12", "2027-12-01").length, 0, "it does not come back next year");
+});

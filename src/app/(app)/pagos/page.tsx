@@ -21,6 +21,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const incomeItems = incomeChecklist(incomes, txs, month, today, skips);
   const plan = monthPlan(incomeItems, items, budgets);
 
+  // One-time extras drop off the list once their month is over.
+  const visibleIncomes = incomes.filter((i) => !i.once_month || i.once_month >= current);
   const counted = items.filter((i) => !i.skipped);
   const done = counted.filter((i) => i.paid).length;
   const skippedCount = items.length - counted.length;
@@ -140,24 +142,24 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             </details>
             {planReady && (
               <details className="group w-full" open={incomes.length === 0 && bills.length > 0}>
-                <summary className="btn-quiet inline-flex cursor-pointer list-none">Programar un ingreso</summary>
+                <summary className="btn-quiet inline-flex cursor-pointer list-none">Programar un ingreso o un extra</summary>
                 <div className="mt-3">
-                  <IncomeForm accounts={savings} />
+                  <IncomeForm accounts={savings} currentMonth={current} />
                 </div>
               </details>
             )}
           </div>
 
-          {(bills.length > 0 || incomes.length > 0) && (
+          {(bills.length > 0 || visibleIncomes.length > 0) && (
             <section className="card">
               <h2 className="display text-2xl">Programados</h2>
               <p className="text-sm text-ink-3">Se repiten cada mes. Las tarjetas y créditos se administran en Deudas.</p>
               <ul className="mt-2 divide-y divide-line">
-                {incomes.map((i) => (
+                {visibleIncomes.map((i) => (
                   <li key={i.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <span>
-                      <span className="pill pill-idea mr-1.5">Ingreso</span>
-                      <span className="font-medium">{i.name}</span>, día {i.day}
+                      <span className="pill pill-idea mr-1.5">{i.once_month ? "Extra" : "Ingreso"}</span>
+                      <span className="font-medium">{i.name}</span>, {i.once_month ? `${i.day} de ${monthName(i.once_month)}` : `día ${i.day}`}
                       {i.months ? ` (${i.months.map((m) => MONTH_SHORT[m - 1]).join(", ")})` : ""}, {i.amount ? formatCOP(i.amount) : "valor variable"}
                     </span>
                     <form action={deleteIncome}>

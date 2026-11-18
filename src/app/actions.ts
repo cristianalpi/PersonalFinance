@@ -517,18 +517,31 @@ export async function saveIncome(_prev: FormState, form: FormData): Promise<Form
   const amountRaw = text(form, "amount");
   const amount = amountRaw ? parsePesos(amountRaw) : null;
   if (amountRaw && !amount) return { error: "El valor no es válido." };
-  const months = form.getAll("months").map(Number).filter((m) => Number.isInteger(m) && m >= 1 && m <= 12);
+  const repeat = text(form, "repeat") || "monthly";
+  const once_month = repeat === "once" ? text(form, "once_month") : null;
+  if (once_month !== null && !MONTH.test(once_month)) return { error: "Elige el mes en que llega." };
+  if (once_month !== null && once_month < todayInBogota().slice(0, 7)) return { error: "Ese mes ya pasó. Si ya lo recibiste, regístralo como ingreso en Movimientos." };
+  const months = repeat === "some" ? form.getAll("months").map(Number).filter((m) => Number.isInteger(m) && m >= 1 && m <= 12) : [];
+  if (repeat === "some" && months.length === 0) return { error: "Marca los meses en que llega." };
   const account_id = text(form, "account_id") || null;
   if (account_id) {
     const { data: target } = await supabase.from("accounts").select("kind").eq("id", account_id).maybeSingle();
     if (!target || isDebt(target)) return { error: "El ingreso debe llegar a una cuenta de ahorros o a tu efectivo." };
   }
-  const row = { name, day, amount, account_id, months: months.length === 0 || months.length === 12 ? null : [...new Set(months)].sort((a, b) => a - b) };
+  const row = {
+    name,
+    day,
+    amount,
+    account_id,
+    months: months.length === 0 || months.length === 12 ? null : [...new Set(months)].sort((a, b) => a - b),
+    // Only sent for a one-time income, so recurring ones keep working before migration 0008 runs.
+    ...(once_month ? { once_month } : {}),
+  };
   const id = text(form, "id");
   const { error } = id ? await supabase.from("incomes").update(row).eq("id", id) : await supabase.from("incomes").insert(row);
-  if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo guardar: ${error.message}` };
+  if (error) return { error: missingTable(error.message, once_month ? "0008" : "0007") ?? `No se pudo guardar: ${error.message}` };
   revalidatePath("/", "layout");
-  return { message: `${name} quedó programado.` };
+  return { message: once_month ? `${name} quedó para ${once_month}.` : `${name} quedó programado.` };
 }
 
 export async function deleteIncome(form: FormData) {

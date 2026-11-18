@@ -88,8 +88,12 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, incomes 
   const current = today.slice(0, 7);
   if (incomes.length) {
     lines.push("\n## Ingresos programados");
-    for (const i of incomes)
-      lines.push(`- ${i.name}: ${i.amount ? formatCOP(i.amount) : "valor variable"}, día ${i.day}${i.months ? `, solo en ${i.months.map((m) => MONTH_SHORT[m - 1]).join(", ")}` : ", cada mes"}`);
+    for (const i of incomes.filter((x) => !x.once_month || x.once_month >= current)) {
+      const when = i.once_month
+        ? `una sola vez, el ${i.day} de ${monthLabel(i.once_month)}`
+        : `día ${i.day}${i.months ? `, solo en ${i.months.map((m) => MONTH_SHORT[m - 1]).join(", ")}` : ", cada mes"}`;
+      lines.push(`- ${i.name}: ${i.amount ? formatCOP(i.amount) : "valor variable"}, ${when}`);
+    }
   }
   if (budgets.length) {
     lines.push("\n## Presupuestos de este mes (gastado / tope)");
