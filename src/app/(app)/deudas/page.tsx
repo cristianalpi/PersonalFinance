@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AccountCard } from "@/components/account-card";
 import { AddAccount } from "@/components/add-account";
 import { AddTile } from "@/components/add-tile";
+import { Carousel } from "@/components/carousel";
 import { PlanSimulator } from "@/components/plan-simulator";
 import { planDebts } from "@/lib/planner";
 import { LinkPending } from "@/components/link-pending";
@@ -11,10 +12,9 @@ import { loadData } from "@/lib/data";
 import { debtView, payFirst, type DebtView } from "@/lib/debts";
 import { formatCOP, formatDate, isDebt, relativeDay } from "@/lib/finance";
 
-// Phones swipe sideways through the debts; wider screens lay them out in two columns.
-const DEBT_ROW =
-  "-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-3 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 md:pb-0";
-const DEBT_SLIDE = "w-[86%] shrink-0 snap-start md:w-auto";
+// Debts slide sideways on every screen, like the account cards: almost one per view on
+// phones, a fixed width with arrows on wider screens.
+const DEBT_SLIDE = "w-[86%] shrink-0 snap-start sm:w-[22rem]";
 
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -25,23 +25,51 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function DebtModule({ view, first, index }: { view: DebtView; first: boolean; index: number }) {
+function DebtModule({
+  view,
+  first,
+  index,
+}: {
+  view: DebtView;
+  first: boolean;
+  index: number;
+}) {
   const { account } = view;
   const owed = Math.max(0, view.balance);
   return (
-    <li className={`card rise flex flex-col gap-4 ${DEBT_SLIDE}`} style={{ "--i": index } as React.CSSProperties}>
-      <Link href={`/cuentas/${account.id}`} className="relative block transition-transform hover:-translate-y-0.5 active:scale-[0.98]" aria-label={`Ver ${account.name}`}>
+    <li
+      className={`card rise flex flex-col gap-4 ${DEBT_SLIDE}`}
+      style={{ "--i": index } as React.CSSProperties}
+    >
+      <Link
+        href={`/cuentas/${account.id}`}
+        className="relative block transition-transform hover:-translate-y-0.5 active:scale-[0.98]"
+        aria-label={`Ver ${account.name}`}
+      >
         <LinkPending />
-        <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} morph={account.id} />
+        <AccountCard
+          account={account}
+          balance={owed}
+          caption={
+            view.usage !== null || account.kind === "credit_card"
+              ? "Saldo de la deuda"
+              : "Te falta por pagar"
+          }
+          morph={account.id}
+        />
       </Link>
 
-      <Link href={`/cuentas/${account.id}#saldo`} className="-mt-2 self-start text-sm font-medium text-brand">
+      <Link
+        href={`/cuentas/${account.id}#saldo`}
+        className="-mt-2 self-start text-sm font-medium text-brand"
+      >
         ↻ Actualizar saldo
       </Link>
 
       {first && (
         <p className="pill pill-idea self-start">
-          <span aria-hidden="true">★</span>&nbsp;Abona aquí primero: es tu deuda más cara
+          <span aria-hidden="true">★</span>&nbsp;Abona aquí primero: es tu deuda
+          más cara
         </p>
       )}
 
@@ -50,13 +78,20 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
           <div>
             <UsageBar usage={view.usage} />
             <p className="mt-1.5 text-sm text-ink-2">
-              Disponible <span className="num font-semibold text-ink">{formatCOP(view.available!)}</span> de {formatCOP(account.credit_limit!)}
+              Disponible{" "}
+              <span className="num font-semibold text-ink">
+                {formatCOP(view.available!)}
+              </span>{" "}
+              de {formatCOP(account.credit_limit!)}
             </p>
           </div>
         ) : (
           <p className="text-sm text-ink-3">
             Agrega el cupo en{" "}
-            <Link href={`/cuentas/${account.id}#editar`} className="font-medium text-brand">
+            <Link
+              href={`/cuentas/${account.id}#editar`}
+              className="font-medium text-brand"
+            >
               editar cuenta
             </Link>{" "}
             para ver el porcentaje de uso.
@@ -77,7 +112,12 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
             aria-valuenow={Math.round(view.paidShare * 100)}
             aria-label={`Pagado: ${Math.round(view.paidShare * 100)}%`}
           >
-            <div className="fill fill-have" style={{ width: `${Math.max(view.paidShare > 0 ? 2 : 0, view.paidShare * 100)}%` }} />
+            <div
+              className="fill fill-have"
+              style={{
+                width: `${Math.max(view.paidShare > 0 ? 2 : 0, view.paidShare * 100)}%`,
+              }}
+            />
           </div>
           <p className="mt-1.5 text-sm text-ink-2">
             {formatCOP(view.base! - owed)} pagados de {formatCOP(view.base!)}
@@ -85,7 +125,10 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
             {!view.baseIsOriginal && (
               <>
                 {" "}
-                <Link href={`/cuentas/${account.id}#editar`} className="font-medium text-brand">
+                <Link
+                  href={`/cuentas/${account.id}#editar`}
+                  className="font-medium text-brand"
+                >
                   Agrega el monto original
                 </Link>
               </>
@@ -97,18 +140,52 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-4 sm:grid-cols-3">
         <Fact
           label="Próximo pago"
-          value={view.nextDue ? `${formatDate(view.nextDue).replace(/ \d{4}$/, "")}, ${relativeDay(view.daysToDue!)}` : owed > 0 ? "Sin día de pago" : "Pagada"}
+          value={
+            view.nextDue
+              ? `${formatDate(view.nextDue).replace(/ \d{4}$/, "")}, ${relativeDay(view.daysToDue!)}`
+              : owed > 0
+                ? "Sin día de pago"
+                : "Pagada"
+          }
         />
-        {account.kind === "loan" && <Fact label="Cuota" value={account.monthly_payment ? formatCOP(account.monthly_payment) : "—"} />}
-        {account.kind === "loan" && view.monthsLeft !== null && <Fact label="Terminas" value={`${view.endsIn} (${view.monthsLeft} cuotas)`} />}
-        <Fact label="Tasa" value={account.annual_rate !== null ? `${account.annual_rate.toLocaleString("es-CO")}% E.A.` : "—"} />
-        {view.monthlyInterest !== null && <Fact label="Intereses al mes, aprox." value={formatCOP(view.monthlyInterest)} />}
+        {account.kind === "loan" && (
+          <Fact
+            label="Cuota"
+            value={
+              account.monthly_payment ? formatCOP(account.monthly_payment) : "—"
+            }
+          />
+        )}
+        {account.kind === "loan" && view.monthsLeft !== null && (
+          <Fact
+            label="Terminas"
+            value={`${view.endsIn} (${view.monthsLeft} cuotas)`}
+          />
+        )}
+        <Fact
+          label="Tasa"
+          value={
+            account.annual_rate !== null
+              ? `${account.annual_rate.toLocaleString("es-CO")}% E.A.`
+              : "—"
+          }
+        />
+        {view.monthlyInterest !== null && (
+          <Fact
+            label="Intereses al mes, aprox."
+            value={formatCOP(view.monthlyInterest)}
+          />
+        )}
       </dl>
     </li>
   );
 }
 
-export default async function DebtsPage({ searchParams }: { searchParams: Promise<{ nueva?: string }> }) {
+export default async function DebtsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nueva?: string }>;
+}) {
   const { accounts, txs, today } = await loadData();
   const addNow = (await searchParams).nueva === "1";
   const planned = planDebts(accounts, txs);
@@ -119,17 +196,30 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
   const interest = owing.reduce((sum, v) => sum + (v.monthlyInterest ?? 0), 0);
   const cards = views.filter((v) => v.account.kind === "credit_card");
   const loans = views.filter((v) => v.account.kind === "loan");
-  const limit = cards.reduce((sum, v) => sum + (v.account.credit_limit ?? 0), 0);
-  const used = cards.filter((v) => v.account.credit_limit).reduce((sum, v) => sum + Math.max(0, v.balance), 0);
+  const limit = cards.reduce(
+    (sum, v) => sum + (v.account.credit_limit ?? 0),
+    0,
+  );
+  const used = cards
+    .filter((v) => v.account.credit_limit)
+    .reduce((sum, v) => sum + Math.max(0, v.balance), 0);
   const first = payFirst(views);
 
   if (views.length === 0) {
     return (
       <section className="card max-w-xl">
         <h1 className="display text-3xl">Sin deudas registradas</h1>
-        <p className="mt-2 text-ink-2">Cuando agregues una tarjeta de crédito o un crédito, aquí verás cuánto debes, cuánto cupo usas y cuánto te falta.</p>
+        <p className="mt-2 text-ink-2">
+          Cuando agregues una tarjeta de crédito o un crédito, aquí verás cuánto
+          debes, cuánto cupo usas y cuánto te falta.
+        </p>
         <div className="mt-4">
-          <AddAccount today={today} autoOpen={addNow} defaultKind="credit_card" label="Agregar una tarjeta o crédito" />
+          <AddAccount
+            today={today}
+            autoOpen={addNow}
+            defaultKind="credit_card"
+            label="Agregar una tarjeta o crédito"
+          />
         </div>
       </section>
     );
@@ -137,36 +227,70 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <AddAccount today={today} autoOpen={addNow} defaultKind="credit_card" label="Agregar deuda" buttonClass="btn-quiet h-10 gap-1.5 self-end px-4 text-sm -mb-3" />
+      <AddAccount
+        today={today}
+        autoOpen={addNow}
+        defaultKind="credit_card"
+        label="Agregar deuda"
+        buttonClass="btn-quiet h-10 gap-1.5 self-end px-4 text-sm -mb-3"
+      />
       <section className="card" aria-labelledby="debts-total">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 id="debts-total" className="eyebrow">
               Debes en total
             </h1>
-            <p className="display text-5xl leading-none sm:text-6xl">{formatCOP(total)}</p>
+            <p className="display text-5xl leading-none sm:text-6xl">
+              {formatCOP(total)}
+            </p>
           </div>
           <dl className="flex flex-wrap gap-6">
-            {interest > 0 && <Fact label="Intereses al mes, aprox." value={formatCOP(interest)} />}
-            {limit > 0 && <Fact label="Cupo usado en tarjetas" value={`${Math.round((used / limit) * 100)}%`} />}
+            {interest > 0 && (
+              <Fact
+                label="Intereses al mes, aprox."
+                value={formatCOP(interest)}
+              />
+            )}
+            {limit > 0 && (
+              <Fact
+                label="Cupo usado en tarjetas"
+                value={`${Math.round((used / limit) * 100)}%`}
+              />
+            )}
           </dl>
         </div>
 
         {/* Parts of a whole: each debt's share of the total, in its card colour, named in the legend. */}
         {owing.length > 1 && (
           <>
-            <div className="mt-5 flex h-4 gap-1 overflow-hidden rounded-full" role="img" aria-label="Reparto de la deuda total por cuenta">
+            <div
+              className="mt-5 flex h-4 gap-1 overflow-hidden rounded-full"
+              role="img"
+              aria-label="Reparto de la deuda total por cuenta"
+            >
               {owing.map((v) => (
-                <div key={v.account.id} className="fill first:rounded-l-full last:rounded-r-full" style={{ width: `${(v.balance / total) * 100}%`, background: cardColor(v.account) }} />
+                <div
+                  key={v.account.id}
+                  className="fill first:rounded-l-full last:rounded-r-full"
+                  style={{
+                    width: `${(v.balance / total) * 100}%`,
+                    background: cardColor(v.account),
+                  }}
+                />
               ))}
             </div>
             <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
               {owing.map((v) => (
                 <li key={v.account.id} className="flex items-center gap-2">
-                  <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: cardColor(v.account) }} />
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 rounded-full"
+                    style={{ background: cardColor(v.account) }}
+                  />
                   <span className="font-medium">{v.account.name}</span>
                   <span className="num text-ink-3">
-                    {formatCOP(v.balance)} ({Math.round((v.balance / total) * 100)}%)
+                    {formatCOP(v.balance)} (
+                    {Math.round((v.balance / total) * 100)}%)
                   </span>
                 </li>
               ))}
@@ -181,16 +305,25 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
             <h2 id="cards-title" className="display text-2xl">
               Tarjetas de crédito
             </h2>
-            {cards.length > 1 && <p className="text-sm text-ink-3 md:hidden">{cards.length} · desliza</p>}
+            {cards.length > 1 && (
+              <p className="text-sm text-ink-3">{cards.length} · desliza</p>
+            )}
           </div>
-          <ul className={DEBT_ROW}>
-            {cards.map((v, i) => (
-              <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={i} />
-            ))}
-            <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
-              <AddTile kind="credit_card" />
-            </li>
-          </ul>
+          <div className="mt-3">
+            <Carousel label="Tarjetas de crédito">
+              {cards.map((v, i) => (
+                <DebtModule
+                  key={v.account.id}
+                  view={v}
+                  first={v.account.id === first}
+                  index={i}
+                />
+              ))}
+              <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
+                <AddTile kind="credit_card" />
+              </li>
+            </Carousel>
+          </div>
         </section>
       )}
 
@@ -200,27 +333,41 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
             <h2 id="loans-title" className="display text-2xl">
               Créditos
             </h2>
-            {loans.length > 1 && <p className="text-sm text-ink-3 md:hidden">{loans.length} · desliza</p>}
+            {loans.length > 1 && (
+              <p className="text-sm text-ink-3">{loans.length} · desliza</p>
+            )}
           </div>
-          <ul className={DEBT_ROW}>
-            {loans.map((v, i) => (
-              <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={cards.length + i} />
-            ))}
-            <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
-              <AddTile kind="loan" />
-            </li>
-          </ul>
+          <div className="mt-3">
+            <Carousel label="Créditos">
+              {loans.map((v, i) => (
+                <DebtModule
+                  key={v.account.id}
+                  view={v}
+                  first={v.account.id === first}
+                  index={cards.length + i}
+                />
+              ))}
+              <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
+                <AddTile kind="loan" />
+              </li>
+            </Carousel>
+          </div>
         </section>
       )}
 
       {planned.length > 0 && (
         <div id="plan" className="scroll-mt-4">
-          <PlanSimulator debts={planned} colors={colors} startMonth={today.slice(0, 7)} />
+          <PlanSimulator
+            debts={planned}
+            colors={colors}
+            startMonth={today.slice(0, 7)}
+          />
         </div>
       )}
 
       <p className="text-xs text-ink-3">
-        Los intereses son un estimado sobre el saldo de hoy con la tasa que registraste. El extracto del banco manda.
+        Los intereses son un estimado sobre el saldo de hoy con la tasa que
+        registraste. El extracto del banco manda.
       </p>
     </>
   );
