@@ -6,7 +6,7 @@ import { isDebt, type AccountKind } from "@/lib/finance";
 import { MoneyInput } from "./money-input";
 
 const KINDS: { kind: AccountKind; icon: string; label: string; hint: string }[] = [
-  { kind: "savings", icon: "🏦", label: "Ahorros", hint: "Cuenta en el banco" },
+  { kind: "savings", icon: "🏦", label: "Cuenta bancaria", hint: "Ahorros, nómina o débito" },
   { kind: "cash", icon: "💵", label: "Efectivo", hint: "Billetera o alcancía" },
   { kind: "credit_card", icon: "💳", label: "Tarjeta", hint: "Tarjeta de crédito" },
   { kind: "loan", icon: "📄", label: "Crédito", hint: "Préstamo con cuotas" },

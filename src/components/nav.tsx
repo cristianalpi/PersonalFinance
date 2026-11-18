@@ -79,8 +79,9 @@ export function Nav({ pending }: { pending: number }) {
       </nav>
 
       {/* Phones and tablets: a floating liquid-glass bar; a glass bubble slides under the chosen tab. */}
-      <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden" style={{ viewTransitionName: "tab-bar" }}>
-        <nav className="liquid relative grid grid-cols-5 rounded-[1.75rem] p-1.5" aria-label="Secciones">
+      {/* The transition name sits on the glass itself: on an ancestor it would cut the blur off from the page behind. */}
+      <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
+        <nav className="liquid liquid-bar relative grid grid-cols-5 rounded-[1.75rem] p-1.5" aria-label="Secciones" style={{ viewTransitionName: "tab-bar" }}>
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-1.5 left-1.5 w-[calc((100%-0.75rem)/5)]">
             <span
               className="nav-glide liquid-bubble block h-full rounded-[1.4rem]"
@@ -108,18 +109,6 @@ export function Nav({ pending }: { pending: number }) {
         </nav>
       </div>
 
-      {/* Registering a purchase is the most frequent action, so it stays one tap away on phones. */}
-      {!pathname.startsWith("/movimientos") && (
-        <Link
-          href="/movimientos#nuevo"
-          className="liquid liquid-tint fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold lg:hidden"
-        >
-          <span aria-hidden="true" className="text-lg leading-none">
-            +
-          </span>
-          Registrar gasto
-        </Link>
-      )}
     </>
   );
 }

@@ -120,6 +120,19 @@ async function Dashboard({ searchParams }: Props) {
         </div>
       </div>
 
+      <section aria-labelledby="money-title">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="money-title" className="display text-2xl">
+              Tus cuentas y efectivo
+            </h2>
+            <p className="text-sm text-ink-3">Ahorros, nómina, débito y efectivo. Toca una para ver sus movimientos.</p>
+          </div>
+          <AddAccount today={today} autoOpen={addNow} label="Agregar" buttonClass="btn-quiet h-10 gap-1.5 px-4 text-sm" />
+        </div>
+        <AccountShelf kinds={["savings", "cash"]} accounts={accounts} txs={txs} title="Tus cuentas y efectivo" showTitle={false} />
+      </section>
+
       {inbox.length > 0 && (
         <Link href="/movimientos" className="card flex items-center justify-between gap-3 py-4 text-sm sm:py-4">
           <span className="flex items-center gap-3">
@@ -150,16 +163,6 @@ async function Dashboard({ searchParams }: Props) {
           )}
         </section>
       )}
-
-      <section aria-labelledby="money-title">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="money-title" className="display text-2xl">
-            Tu plata
-          </h2>
-          <AddAccount today={today} autoOpen={addNow} label="Agregar" buttonClass="btn-quiet h-10 gap-1.5 px-4 text-sm" />
-        </div>
-        <AccountShelf kinds={["savings", "cash"]} accounts={accounts} txs={txs} title="Tu plata" showTitle={false} />
-      </section>
 
       <div className="grid gap-4 lg:grid-cols-6 lg:gap-5">
         <section className="card lg:col-span-4" aria-labelledby="trend-title">

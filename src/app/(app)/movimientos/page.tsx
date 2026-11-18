@@ -2,10 +2,10 @@ import Link from "next/link";
 import { BudgetsCard } from "@/components/budgets-card";
 import { InboxItem } from "@/components/inbox-item";
 import { budgetViews } from "@/lib/budget";
-import { TxForm } from "@/components/tx-form";
+import { NewMovementButton } from "@/components/quick-add";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
-import { CATEGORIES, formatCOP, monthLabel } from "@/lib/finance";
+import { formatCOP, monthLabel } from "@/lib/finance";
 
 export default async function TransactionsPage() {
   const { accounts, txs, inbox, budgets, planReady, today } = await loadData();
@@ -33,12 +33,10 @@ export default async function TransactionsPage() {
 
   return (
     <>
-      <h1 className="display pt-2 text-3xl">Movimientos</h1>
-      <datalist id="categorias">
-        {CATEGORIES.map((c) => (
-          <option key={c} value={c} />
-        ))}
-      </datalist>
+      <div className="flex items-center justify-between gap-3 pt-2">
+        <h1 className="display text-3xl">Movimientos</h1>
+        <NewMovementButton />
+      </div>
 
       <section className="card">
         <p className="eyebrow">Flujo de {monthLabel(month)}</p>
@@ -71,7 +69,6 @@ export default async function TransactionsPage() {
         </section>
       )}
 
-      <TxForm accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
       <TxList txs={txs} accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />
     </>
   );

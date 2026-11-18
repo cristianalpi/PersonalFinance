@@ -4,7 +4,7 @@ import { openAddAccount } from "./add-account";
 import type { AccountKind } from "@/lib/finance";
 
 const TEXT: Record<AccountKind, string> = {
-  savings: "Agregar cuenta de ahorros",
+  savings: "Agregar cuenta bancaria",
   cash: "Agregar efectivo",
   credit_card: "Agregar tarjeta",
   loan: "Agregar crédito",

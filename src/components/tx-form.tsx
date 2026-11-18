@@ -5,7 +5,6 @@ import { saveTx, type FormState } from "@/app/actions";
 import { MoneyInput } from "./money-input";
 import {
   allowedTxKinds,
-  CATEGORIES,
   type Account,
   type Tx,
   type TxKind,
@@ -32,12 +31,12 @@ export function TxForm({
   accounts: AccountOption[];
   today: string;
   tx?: Tx;
-  onDone?: () => void;
+  onDone?: (message: string) => void;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(
     async (prev: FormState, form: FormData) => {
       const result = await saveTx(prev, form);
-      if (!result.error) onDone?.();
+      if (!result.error) onDone?.(result.message ?? "Guardado.");
       return result;
     },
     {},
@@ -52,25 +51,9 @@ export function TxForm({
   );
 
   return (
-    <form
-      id={editing ? undefined : "nuevo"}
-      action={action}
-      className={
-        editing ? "flex flex-col gap-4" : "card flex scroll-mt-4 flex-col gap-4"
-      }
-    >
-      {editing ? (
-        <input type="hidden" name="id" value={tx!.id} />
-      ) : (
-        <h2 className="display text-2xl">Nuevo movimiento</h2>
-      )}
-      {editing && (
-        <datalist id="categorias-editar">
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
-      )}
+    // Lives inside a sheet (new or edit), so it has no card or title of its own.
+    <form action={action} className="flex flex-col gap-4">
+      {editing && <input type="hidden" name="id" value={tx!.id} />}
       {editing ? (
         <input type="hidden" name="kind" value={kind} />
       ) : (
@@ -169,7 +152,7 @@ export function TxForm({
                 <input
                   className="input"
                   name="category"
-                  list={editing ? "categorias-editar" : "categorias"}
+                  list="categorias"
                   defaultValue={own?.category ?? "Ocio"}
                 />
               </label>

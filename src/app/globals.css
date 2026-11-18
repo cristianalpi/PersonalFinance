@@ -501,6 +501,14 @@ body {
     -webkit-backdrop-filter: blur(22px) saturate(2) brightness(1.06);
     backdrop-filter: blur(22px) saturate(2) brightness(1.06);
   }
+  /* The tab bar floats over text: a denser frosted layer keeps its labels readable. */
+  .liquid-bar {
+    background:
+      linear-gradient(160deg, var(--liquid-a), var(--liquid-b)),
+      color-mix(in srgb, var(--bg) 72%, transparent);
+    -webkit-backdrop-filter: blur(28px) saturate(1.8);
+    backdrop-filter: blur(28px) saturate(1.8);
+  }
   /* The specular sheen near the top edge, like light on a curved glass. */
   .liquid::before {
     content: "";

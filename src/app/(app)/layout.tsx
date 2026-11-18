@@ -1,22 +1,24 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { AdvisorButton, Nav } from "@/components/nav";
+import { QuickAdd, QuickAddButton } from "@/components/quick-add";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { createClient } from "@/lib/supabase/server";
+import { loadShell } from "@/lib/data";
+import { CATEGORIES } from "@/lib/finance";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { count } = await supabase.from("wallet_inbox").select("id", { count: "exact", head: true });
+  const { pending, accounts, today } = await loadShell();
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-40 sm:px-6 lg:pb-16">
-      {/* view-transition-name makes the header a stacking context; z-40 keeps the fixed tab bar inside it above the page. */}
-      <header className="relative z-40 flex items-center justify-between gap-3 py-4 sm:py-5" style={{ viewTransitionName: "site-header" }}>
+      {/* Above the page so the fixed tab bar, which lives inside, stays on top of the content. */}
+      <header className="relative z-40 flex items-center justify-between gap-3 py-4 sm:py-5">
         <div className="flex items-center gap-4">
           <Logo />
-          <Nav pending={count ?? 0} />
+          <Nav pending={pending} />
         </div>
         <div className="flex items-center gap-2">
+          <QuickAddButton />
           <AdvisorButton />
           <ThemeToggle />
           {/* Ajustes is an icon here on every screen size. */}
@@ -26,7 +28,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </svg>
           </Link>
         </div>
+        <QuickAdd accounts={accounts} today={today} />
       </header>
+      <datalist id="categorias">
+        {CATEGORIES.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       <main className="flex flex-col gap-6 sm:gap-8">{children}</main>
     </div>
   );

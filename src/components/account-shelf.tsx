@@ -6,7 +6,7 @@ import { Carousel, Slide } from "./carousel";
 import { UsageBar } from "./usage-bar";
 
 export const SHELF_TITLE: Record<AccountKind, string> = {
-  savings: "Cuentas de ahorros",
+  savings: "Cuentas bancarias",
   cash: "Efectivo",
   credit_card: "Tarjetas de crédito",
   loan: "Créditos",

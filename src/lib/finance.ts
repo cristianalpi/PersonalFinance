@@ -51,7 +51,7 @@ export interface Skip {
 }
 
 export const KIND_LABEL: Record<AccountKind, string> = {
-  savings: "Cuenta de ahorros",
+  savings: "Cuenta bancaria",
   cash: "Efectivo",
   credit_card: "Tarjeta de crédito",
   loan: "Crédito",

@@ -14,6 +14,20 @@ import { createClient } from "./supabase/server";
 
 const PAGE = 1000; // Supabase returns at most 1000 rows per request
 
+/** What every screen's frame needs: accounts for the quick «new movement» sheet and the Wallet inbox count. */
+export async function loadShell() {
+  const supabase = await createClient();
+  const [inbox, accounts] = await Promise.all([
+    supabase.from("wallet_inbox").select("id", { count: "exact", head: true }),
+    supabase.from("accounts").select("id, name, kind").order("created_at"),
+  ]);
+  return {
+    pending: inbox.count ?? 0,
+    accounts: (accounts.data ?? []) as Pick<Account, "id" | "name" | "kind">[],
+    today: todayInBogota(),
+  };
+}
+
 /** Everything the signed-in user has recorded. Row Level Security scopes both queries to them. */
 export async function loadData() {
   const supabase = await createClient();

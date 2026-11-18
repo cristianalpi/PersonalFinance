@@ -10,6 +10,11 @@ import { loadData } from "@/lib/data";
 import { debtView, payFirst, type DebtView } from "@/lib/debts";
 import { formatCOP, formatDate, isDebt, relativeDay } from "@/lib/finance";
 
+// Phones swipe sideways through the debts; wider screens lay them out in two columns.
+const DEBT_ROW =
+  "-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-3 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 md:pb-0";
+const DEBT_SLIDE = "w-[86%] shrink-0 snap-start md:w-auto";
+
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -23,7 +28,7 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
   const { account } = view;
   const owed = Math.max(0, view.balance);
   return (
-    <li className="card rise flex flex-col gap-4" style={{ "--i": index } as React.CSSProperties}>
+    <li className={`card rise flex flex-col gap-4 ${DEBT_SLIDE}`} style={{ "--i": index } as React.CSSProperties}>
       <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-0.5" aria-label={`Ver ${account.name}`}>
         <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} morph={account.id} />
       </Link>
@@ -170,14 +175,17 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
 
       {cards.length > 0 && (
         <section aria-labelledby="cards-title">
-          <h2 id="cards-title" className="display text-2xl">
-            Tarjetas de crédito
-          </h2>
-          <ul className="mt-3 grid gap-4 md:grid-cols-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="cards-title" className="display text-2xl">
+              Tarjetas de crédito
+            </h2>
+            {cards.length > 1 && <p className="text-sm text-ink-3 md:hidden">{cards.length} · desliza</p>}
+          </div>
+          <ul className={DEBT_ROW}>
             {cards.map((v, i) => (
               <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={i} />
             ))}
-            <li className="min-h-40">
+            <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
               <AddTile kind="credit_card" />
             </li>
           </ul>
@@ -186,14 +194,17 @@ export default async function DebtsPage({ searchParams }: { searchParams: Promis
 
       {loans.length > 0 && (
         <section aria-labelledby="loans-title">
-          <h2 id="loans-title" className="display text-2xl">
-            Créditos
-          </h2>
-          <ul className="mt-3 grid gap-4 md:grid-cols-2">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="loans-title" className="display text-2xl">
+              Créditos
+            </h2>
+            {loans.length > 1 && <p className="text-sm text-ink-3 md:hidden">{loans.length} · desliza</p>}
+          </div>
+          <ul className={DEBT_ROW}>
             {loans.map((v, i) => (
               <DebtModule key={v.account.id} view={v} first={v.account.id === first} index={cards.length + i} />
             ))}
-            <li className="min-h-40">
+            <li className={`flex min-h-40 ${DEBT_SLIDE}`}>
               <AddTile kind="loan" />
             </li>
           </ul>
