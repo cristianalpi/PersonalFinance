@@ -3,13 +3,14 @@
 import { useActionState, useEffect, useState } from "react";
 import { saveAccount, type FormState } from "@/app/actions";
 import { isDebt, type AccountKind } from "@/lib/finance";
+import { Icon, KIND_ICON } from "./icons";
 import { MoneyInput } from "./money-input";
 
-const KINDS: { kind: AccountKind; icon: string; label: string; hint: string }[] = [
-  { kind: "savings", icon: "🏦", label: "Cuenta bancaria", hint: "Ahorros, nómina o débito" },
-  { kind: "cash", icon: "💵", label: "Efectivo", hint: "Billetera o alcancía" },
-  { kind: "credit_card", icon: "💳", label: "Tarjeta", hint: "Tarjeta de crédito" },
-  { kind: "loan", icon: "📄", label: "Crédito", hint: "Préstamo con cuotas" },
+const KINDS: { kind: AccountKind; tone: string; label: string; hint: string }[] = [
+  { kind: "savings", tone: "tone-have", label: "Cuenta bancaria", hint: "Ahorros, nómina o débito" },
+  { kind: "cash", tone: "tone-cash", label: "Efectivo", hint: "Billetera o alcancía" },
+  { kind: "credit_card", tone: "tone-brand", label: "Tarjeta", hint: "Tarjeta de crédito" },
+  { kind: "loan", tone: "tone-owe", label: "Crédito", hint: "Préstamo con cuotas" },
 ];
 
 const PLACEHOLDER: Record<AccountKind, string> = {
@@ -44,10 +45,10 @@ export function AccountForm({ today, onSaved, initialKind = "savings" }: { today
               type="button"
               aria-pressed={kind === k.kind}
               onClick={() => setKind(k.kind)}
-              className="flex flex-col items-start gap-1 rounded-2xl border border-line p-3 text-left transition hover:border-brand aria-pressed:border-brand aria-pressed:bg-brand/12 aria-pressed:shadow-[0_8px_24px_-14px_var(--brand)]"
+              className="group flex flex-col items-start gap-1.5 rounded-2xl border border-line p-3 text-left transition hover:border-brand active:scale-[0.97] aria-pressed:border-brand aria-pressed:bg-brand/12 aria-pressed:shadow-[0_8px_24px_-14px_var(--brand)]"
             >
-              <span aria-hidden="true" className="text-2xl">
-                {k.icon}
+              <span className={`icon-tile ${k.tone}`}>
+                <Icon name={KIND_ICON[k.kind]} />
               </span>
               <span className="font-semibold">{k.label}</span>
               <span className="text-xs text-ink-3">{k.hint}</span>

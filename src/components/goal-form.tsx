@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { saveGoal, type FormState } from "@/app/actions";
 import { formatCOP } from "@/lib/finance";
 import { useCloseModal } from "./modal";
+import { Icon } from "./icons";
 import { MoneyInput } from "./money-input";
 
 const EMOJIS = ["🎯", "🛋️", "📱", "✈️", "🏍️", "🚗", "🏠", "🎓", "🎁", "💍", "🐶", "🛟"];
@@ -36,8 +37,8 @@ export function GoalForm({ debts, today }: { debts: DebtOption[]; today: string 
       <div className="grid grid-cols-2 gap-2">
         {(
           [
-            { k: "save", icon: "🎯", label: "Ahorrar para algo", hint: "Juntar un monto antes de una fecha" },
-            { k: "payoff", icon: "💳", label: "Pagar una deuda", hint: "Dejarla en cero antes de una fecha" },
+            { k: "save", icon: "target" as const, tone: "tone-have", label: "Ahorrar para algo", hint: "Juntar un monto antes de una fecha" },
+            { k: "payoff", icon: "card" as const, tone: "tone-owe", label: "Pagar una deuda", hint: "Dejarla en cero antes de una fecha" },
           ] as const
         ).map((o) => (
           <button
@@ -46,10 +47,10 @@ export function GoalForm({ debts, today }: { debts: DebtOption[]; today: string 
             aria-pressed={kind === o.k}
             onClick={() => setKind(o.k)}
             disabled={o.k === "payoff" && debts.length === 0}
-            className="flex flex-col items-start gap-1 rounded-2xl border border-line p-3 text-left transition hover:border-brand disabled:opacity-40 aria-pressed:border-brand aria-pressed:bg-brand/12"
+            className="group flex flex-col items-start gap-1.5 rounded-2xl border border-line p-3 text-left transition hover:border-brand active:scale-[0.97] disabled:opacity-40 aria-pressed:border-brand aria-pressed:bg-brand/12"
           >
-            <span aria-hidden="true" className="text-2xl">
-              {o.icon}
+            <span className={`icon-tile ${o.tone}`}>
+              <Icon name={o.icon} />
             </span>
             <span className="font-semibold">{o.label}</span>
             <span className="text-xs text-ink-3">{o.hint}</span>

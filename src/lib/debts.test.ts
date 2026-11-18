@@ -92,3 +92,13 @@ test("automatic logos only for known banks, and only from their listed websites"
   assert.equal(bankDomain("bancolombia"), "bancolombia.com");
   assert.equal(bankDomain("evil.com"), null);
 });
+
+test("banks: Davibank and the Rappi cards get their own logos", async () => {
+  const { bankDomains } = await import("./banks.ts");
+  assert.equal(bankKey("Davibank"), "davibank");
+  assert.equal(bankKey("DAVIbank"), "davibank");
+  assert.equal(bankKey("Davivienda"), "davivienda");
+  assert.equal(bankKey("RappiCard"), "rappi");
+  assert.equal(bankKey("RappiPay"), "rappi");
+  assert.deepEqual(bankDomains("davibank"), ["davibank.com.co", "davibank.com", "davivienda.com"]);
+});

@@ -1,8 +1,10 @@
 import { deleteBudget } from "@/app/actions";
 import type { BudgetView } from "@/lib/budget";
-import { CATEGORIES, formatCOP, txIcon } from "@/lib/finance";
+import { CATEGORIES, formatCOP } from "@/lib/finance";
+import { Icon, txIconName } from "./icons";
 import { BudgetForm } from "./bill-forms";
 import { Modal } from "./modal";
+import { SubmitButton } from "./submit-button";
 
 const STATUS = {
   ok: { fill: "var(--savings)", pill: null },
@@ -35,7 +37,9 @@ export function BudgetsCard({ views, current }: { views: BudgetView[]; current: 
             return (
               <li key={v.id}>
                 <div className="flex items-center gap-2">
-                  <span aria-hidden="true">{txIcon({ kind: "expense", category: v.category })}</span>
+                  <span className="icon-tile tone-brand size-8 rounded-lg">
+                    <Icon name={txIconName({ kind: "expense", category: v.category })} className="size-4" />
+                  </span>
                   <p className="min-w-0 flex-1 truncate font-semibold">{v.category}</p>
                   {look.pill && <span className={`pill ${look.pill.cls}`}>{look.pill.text}</span>}
                   <p className="num shrink-0 text-sm">
@@ -64,9 +68,9 @@ export function BudgetsCard({ views, current }: { views: BudgetView[]; current: 
                       </Modal>
                       <form action={deleteBudget}>
                         <input type="hidden" name="id" value={v.id} />
-                        <button className="font-medium hover:text-ink" aria-label={`Quitar presupuesto de ${v.category}`}>
+                        <SubmitButton className="font-medium hover:text-ink" aria-label={`Quitar presupuesto de ${v.category}`}>
                           Quitar
-                        </button>
+                        </SubmitButton>
                       </form>
                     </span>
                   )}

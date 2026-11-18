@@ -10,6 +10,7 @@ import { OpenEditorFromHash } from "./open-editor";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
 import { balanceAt, formatCOP, formatDate, isDebt, monthlySeries, nextDueDate, relativeDay, daysBetween } from "@/lib/finance";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function AccountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -76,7 +77,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           <form action={deleteAccount} className="mt-3 flex flex-wrap items-center gap-3">
             <input type="hidden" name="id" value={account.id} />
             <p className="text-ink-2">Se borran también sus {own.length} movimientos. No se puede deshacer.</p>
-            <button className="btn-quiet border-debt/40 text-ink">Sí, eliminar</button>
+            <SubmitButton className="btn-quiet border-debt/40 text-ink">Sí, eliminar</SubmitButton>
           </form>
         </details>
       </details>

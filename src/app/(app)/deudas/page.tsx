@@ -4,6 +4,7 @@ import { AddAccount } from "@/components/add-account";
 import { AddTile } from "@/components/add-tile";
 import { PlanSimulator } from "@/components/plan-simulator";
 import { planDebts } from "@/lib/planner";
+import { LinkPending } from "@/components/link-pending";
 import { UsageBar } from "@/components/usage-bar";
 import { cardColor } from "@/lib/banks";
 import { loadData } from "@/lib/data";
@@ -29,7 +30,8 @@ function DebtModule({ view, first, index }: { view: DebtView; first: boolean; in
   const owed = Math.max(0, view.balance);
   return (
     <li className={`card rise flex flex-col gap-4 ${DEBT_SLIDE}`} style={{ "--i": index } as React.CSSProperties}>
-      <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-0.5" aria-label={`Ver ${account.name}`}>
+      <Link href={`/cuentas/${account.id}`} className="relative block transition-transform hover:-translate-y-0.5 active:scale-[0.98]" aria-label={`Ver ${account.name}`}>
+        <LinkPending />
         <AccountCard account={account} balance={owed} caption={view.usage !== null || account.kind === "credit_card" ? "Saldo de la deuda" : "Te falta por pagar"} morph={account.id} />
       </Link>
 

@@ -7,11 +7,15 @@ interface Bank {
   color: string;
   /** The bank's public website, used to fetch its icon. */
   domain: string;
+  /** Other sites tried in order when the first has no icon (new or renamed brands). */
+  fallbacks?: string[];
 }
 
 const BANKS: Bank[] = [
   { key: "bancolombia", pattern: /bancolombia/i, color: "#FDDA24", domain: "bancolombia.com" },
   { key: "daviplata", pattern: /daviplata/i, color: "#E30613", domain: "daviplata.com" },
+  // Davibank (formerly Scotiabank Colpatria) is checked before Davivienda and Colpatria.
+  { key: "davibank", pattern: /davi ?bank/i, color: "#E30613", domain: "davibank.com.co", fallbacks: ["davibank.com", "davivienda.com"] },
   { key: "davivienda", pattern: /davivienda/i, color: "#E30613", domain: "davivienda.com" },
   { key: "bbva", pattern: /bbva/i, color: "#004481", domain: "bbva.com.co" },
   { key: "bogota", pattern: /banco de bogot[aá]|bogot[aá]/i, color: "#003B71", domain: "bancodebogota.com" },
@@ -25,7 +29,8 @@ const BANKS: Bank[] = [
   { key: "falabella", pattern: /falabella/i, color: "#2F9E44", domain: "bancofalabella.com.co" },
   { key: "cajasocial", pattern: /caja social/i, color: "#00539F", domain: "bancocajasocial.com" },
   { key: "lulo", pattern: /lulo/i, color: "#00B894", domain: "lulobank.com" },
-  { key: "rappi", pattern: /rappi/i, color: "#FF441F", domain: "rappipay.co" },
+  // RappiPay, RappiCard and RappiCuenta share the brand.
+  { key: "rappi", pattern: /rappi/i, color: "#FF441F", domain: "rappipay.co", fallbacks: ["rappi.com.co", "rappi.com"] },
   { key: "pichincha", pattern: /pichincha/i, color: "#F2C500", domain: "bancopichincha.com.co" },
   { key: "gnb", pattern: /gnb|sudameris/i, color: "#003A70", domain: "gnbsudameris.com.co" },
   { key: "agrario", pattern: /agrario/i, color: "#00753E", domain: "bancoagrario.gov.co" },
@@ -43,6 +48,12 @@ export function bankKey(institution: string | null | undefined): string | null {
 /** Website of a known bank by key. Only these domains are ever fetched, never one the user types. */
 export function bankDomain(key: string): string | null {
   return BANKS.find((b) => b.key === key)?.domain ?? null;
+}
+
+/** The bank's website and its fallbacks, in the order to try them for an icon. */
+export function bankDomains(key: string): string[] {
+  const bank = BANKS.find((b) => b.key === key);
+  return bank ? [bank.domain, ...(bank.fallbacks ?? [])] : [];
 }
 
 /** Colours offered in the picker when there is no bank colour, and used as defaults. */

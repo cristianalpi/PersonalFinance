@@ -1,6 +1,7 @@
 import { ViewTransition } from "react";
 import { bankKey, cardColor, cardInk, initials, shade } from "@/lib/banks";
 import { BankLogo } from "./bank-logo";
+import { Icon } from "./icons";
 import { KIND_LABEL, formatCOP, type Account } from "@/lib/finance";
 
 type CardAccount = Pick<Account, "kind" | "name" | "institution" | "color" | "last4" | "logo">;
@@ -39,7 +40,7 @@ export function AccountCard({
       className="display flex size-10 shrink-0 items-center justify-center rounded-xl text-sm"
       style={{ background: light ? "rgba(255,255,255,0.22)" : "rgba(20,17,46,0.12)" }}
     >
-      {account.kind === "cash" ? <span className="text-xl">💵</span> : initials(mark)}
+      {account.kind === "cash" ? <Icon name="cash" className="size-5" /> : initials(mark)}
     </span>
   );
 

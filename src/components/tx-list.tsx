@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteTx } from "@/app/actions";
-import { ADJUSTMENT, formatCOP, formatDate, relativeDay, daysBetween, txIcon, type Account, type Tx, type TxKind } from "@/lib/finance";
+import { ADJUSTMENT, formatCOP, formatDate, relativeDay, daysBetween, type Account, type Tx, type TxKind } from "@/lib/finance";
+import { Icon, txIconName } from "./icons";
 import { Sheet } from "./modal";
 import { TxForm } from "./tx-form";
+import { SubmitButton } from "./submit-button";
 
 const FILTERS: { value: TxKind | "all"; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -138,20 +140,24 @@ export function TxList({ txs, accounts, today }: { txs: Tx[]; accounts: Pick<Acc
                             disabled={tx.category === ADJUSTMENT}
                             onClick={() => { setSwiped(null); setEditing(tx); }}
                           >
-                            <span aria-hidden="true" className="text-lg">✎</span>Editar
+                            <Icon name="edit" className="size-5" />
+                            Editar
                           </button>
                           <form action={deleteTx} className="contents">
                             <input type="hidden" name="id" value={tx.id} />
-                            <button className="swipe-action bg-debt">
-                              <span aria-hidden="true" className="text-lg">🗑</span>Borrar
-                            </button>
+                            <SubmitButton className="swipe-action bg-debt">
+                              <span className="flex flex-col items-center gap-0.5">
+                                <Icon name="trash" className="size-5" />
+                                Borrar
+                              </span>
+                            </SubmitButton>
                           </form>
                         </>
                       }
                     >
                       <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-r-full" style={{ background: look.stripe }} />
-                      <span className={`badge text-xl ${look.tint}`} aria-hidden="true">
-                        {txIcon(tx)}
+                      <span className={`badge ${look.tint}`} aria-hidden="true">
+                        <Icon name={txIconName(tx)} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-semibold">{title(tx)}</p>
@@ -175,15 +181,15 @@ export function TxList({ txs, accounts, today }: { txs: Tx[]; accounts: Pick<Acc
                             className="row-tool"
                             aria-label={`Editar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
                           >
-                            ✎
+                            <Icon name="edit" className="size-4" />
                           </button>
                         )}
                         {armed === tx.id ? (
                           <form action={deleteTx} className="rise">
                             <input type="hidden" name="id" value={tx.id} />
-                            <button className="pill pill-urgent py-1.5 text-xs" aria-label={`Confirmar: borrar ${title(tx)}`}>
+                            <SubmitButton className="pill pill-urgent py-1.5 text-xs" aria-label={`Confirmar: borrar ${title(tx)}`}>
                               Borrar
-                            </button>
+                            </SubmitButton>
                           </form>
                         ) : (
                           <button
@@ -192,7 +198,7 @@ export function TxList({ txs, accounts, today }: { txs: Tx[]; accounts: Pick<Acc
                             className="row-tool"
                             aria-label={`Eliminar ${title(tx)} del ${formatDate(tx.occurred_on)}`}
                           >
-                            ✕
+                            <Icon name="trash" className="size-4" />
                           </button>
                         )}
                       </span>

@@ -3,6 +3,7 @@ import { balanceAt, holdsMoney, type Account, type AccountKind, type Tx } from "
 import { AccountCard } from "./account-card";
 import { AddTile } from "./add-tile";
 import { Carousel, Slide } from "./carousel";
+import { LinkPending } from "./link-pending";
 import { UsageBar } from "./usage-bar";
 
 export const SHELF_TITLE: Record<AccountKind, string> = {
@@ -41,7 +42,8 @@ export function AccountShelf({
             const balance = balanceAt(account, txs);
             return (
               <Slide key={account.id} index={i}>
-                <Link href={`/cuentas/${account.id}`} className="block transition-transform hover:-translate-y-1" aria-label={`Ver ${account.name}`}>
+                <Link href={`/cuentas/${account.id}`} className="relative block transition-transform hover:-translate-y-1 active:scale-[0.98]" aria-label={`Ver ${account.name}`}>
+                  <LinkPending />
                   <AccountCard account={account} balance={Math.max(0, balance)} caption={holdsMoney(account) ? "Saldo" : "Lo que debes"} morph={account.id}>
                     {account.kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
                   </AccountCard>

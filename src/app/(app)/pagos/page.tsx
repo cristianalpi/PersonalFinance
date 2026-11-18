@@ -6,6 +6,7 @@ import { MonthPlanCard } from "@/components/month-plan";
 import { incomeChecklist, incomeRow, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
 import { formatCOP, monthName, monthlyChecklist, shiftMonth } from "@/lib/finance";
+import { SubmitButton } from "@/components/submit-button";
 
 const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
@@ -164,7 +165,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </span>
                     <form action={deleteIncome}>
                       <input type="hidden" name="id" value={i.id} />
-                      <button className="text-ink-3 hover:text-ink">Eliminar</button>
+                      <SubmitButton className="text-ink-3 hover:text-ink">Eliminar</SubmitButton>
                     </form>
                   </li>
                 ))}
@@ -175,7 +176,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </span>
                     <form action={deleteBill}>
                       <input type="hidden" name="id" value={bill.id} />
-                      <button className="text-ink-3 hover:text-ink">Eliminar</button>
+                      <SubmitButton className="text-ink-3 hover:text-ink">Eliminar</SubmitButton>
                     </form>
                   </li>
                 ))}

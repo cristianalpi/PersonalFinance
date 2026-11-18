@@ -37,7 +37,18 @@ function Icon({ d, active }: { d: string; active: boolean }) {
 
 export function Nav({ pending }: { pending: number }) {
   const pathname = usePathname();
-  const active = TABS.findIndex((t) => (t.href === "/" ? pathname === "/" : pathname.startsWith(t.href)));
+  // The tapped tab lights up at once; the real address takes over when the screen arrives.
+  const [tapped, setTapped] = useState<string | null>(null);
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    setTapped(null);
+  }
+  const current = TABS.findIndex((t) => (t.href === "/" ? pathname === "/" : pathname.startsWith(t.href)));
+  const active = tapped ? TABS.findIndex((t) => t.href === tapped) : current;
+  const tap = (href: string) => () => {
+    if (TABS.findIndex((t) => t.href === href) !== current) setTapped(href);
+  };
 
   // Desktop: the pill measures the active link, then glides to it.
   const desk = useRef<HTMLElement>(null);
@@ -69,7 +80,8 @@ export function Nav({ pending }: { pending: number }) {
           <Link
             key={item.href}
             href={item.href}
-            aria-current={i === active ? "page" : undefined}
+            onClick={tap(item.href)}
+            aria-current={i === current ? "page" : undefined}
             className={`relative rounded-full px-3.5 py-1.5 transition-colors ${i === active ? "font-semibold text-ink" : "text-ink-2 hover:text-ink"}`}
           >
             {item.label}
@@ -94,7 +106,8 @@ export function Nav({ pending }: { pending: number }) {
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={on ? "page" : undefined}
+                onClick={tap(item.href)}
+                aria-current={i === current ? "page" : undefined}
                 className={`relative flex flex-col items-center gap-0.5 rounded-[1.4rem] py-1.5 text-[11px] font-semibold transition-colors duration-300 ${on ? "text-brand" : "text-ink-2"}`}
               >
                 {/* Re-keyed when it becomes active, so the icon bounces once on arrival. */}

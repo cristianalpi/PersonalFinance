@@ -5,6 +5,7 @@ import { discardInbox, resolveInbox, type FormState } from "@/app/actions";
 import type { InboxItem as Item } from "@/lib/data";
 import { formatDate } from "@/lib/finance";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 
 export function InboxItem({ item, accounts }: { item: Item; accounts: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState<FormState, FormData>(resolveInbox, {});
@@ -50,7 +51,7 @@ export function InboxItem({ item, accounts }: { item: Item; accounts: { id: stri
       {state.error && <p role="alert" className="alert">{state.error}</p>}
       <form action={discardInbox}>
         <input type="hidden" name="id" value={item.id} />
-        <button className="text-sm text-ink-3 underline-offset-2 hover:text-ink hover:underline">Descartar</button>
+        <SubmitButton className="text-sm text-ink-3 underline-offset-2 hover:text-ink hover:underline">Descartar</SubmitButton>
       </form>
     </li>
   );

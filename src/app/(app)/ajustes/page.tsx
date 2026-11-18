@@ -5,6 +5,7 @@ import { ScalePicker, ThemePicker } from "@/components/theme-toggle";
 import { TokenCard } from "@/components/token-card";
 import { loadData } from "@/lib/data";
 import { SCALE_COOKIE, THEME_COOKIE, parseScale, parseTheme } from "@/lib/theme";
+import { SubmitButton } from "@/components/submit-button";
 
 export default async function SettingsPage() {
   const { supabase, accounts, user } = await loadData();
@@ -71,7 +72,7 @@ export default async function SettingsPage() {
                 </span>
                 <form action={clearWalletName}>
                   <input type="hidden" name="id" value={a.id} />
-                  <button className="text-ink-3 hover:text-ink">Desvincular</button>
+                  <SubmitButton className="text-ink-3 hover:text-ink">Desvincular</SubmitButton>
                 </form>
               </li>
             ))}
@@ -102,7 +103,7 @@ export default async function SettingsPage() {
           <p className="text-sm text-ink-3">Entraste como {user.email ?? "tú"}.</p>
         </div>
         <form action={signOut}>
-          <button className="btn-quiet">Cerrar sesión</button>
+          <SubmitButton className="btn-quiet">Cerrar sesión</SubmitButton>
         </form>
       </section>
     </>

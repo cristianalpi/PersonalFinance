@@ -7,6 +7,7 @@ import { Ring } from "@/components/ring";
 import { loadData } from "@/lib/data";
 import { balanceAt, formatCOP, formatDate, isDebt } from "@/lib/finance";
 import { goalView, type GoalStatus, type GoalView } from "@/lib/goals";
+import { SubmitButton } from "@/components/submit-button";
 
 const STATUS: Record<GoalStatus, { label: string; pill: string }> = {
   done: { label: "¡Lograda! 🎉", pill: "pill-idea" },
@@ -88,7 +89,7 @@ function GoalCard({ view, index }: { view: GoalView; index: number }) {
         )}
         <form action={deleteGoal}>
           <input type="hidden" name="id" value={goal.id} />
-          <button className="text-sm text-ink-3 hover:text-ink">Eliminar meta</button>
+          <SubmitButton className="text-sm text-ink-3 hover:text-ink">Eliminar meta</SubmitButton>
         </form>
       </div>
     </li>

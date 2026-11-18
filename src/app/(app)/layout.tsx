@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { AdvisorButton, Nav } from "@/components/nav";
+import { NavProgress } from "@/components/nav-progress";
 import { QuickAdd, QuickAddButton } from "@/components/quick-add";
+import { Suspense } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { loadShell } from "@/lib/data";
 import { CATEGORIES } from "@/lib/finance";
@@ -11,6 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-40 sm:px-6 lg:pb-16">
+      <Suspense>
+        <NavProgress />
+      </Suspense>
       {/* Above the page so the fixed tab bar, which lives inside, stays on top of the content. */}
       <header className="relative z-40 flex items-center justify-between gap-3 py-4 sm:py-5">
         <div className="flex items-center gap-4">
