@@ -2,17 +2,10 @@
 
 import { useEffect } from "react";
 
-/** Opens the editor for links ending in #editar, and scrolls to the balance form for #saldo. */
+/** Opens the balance form for links ending in #saldo. (#editar is handled by the card itself.) */
 export function OpenEditorFromHash() {
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash === "#editar") {
-      const el = document.getElementById("editar");
-      if (el instanceof HTMLDetailsElement) {
-        el.open = true;
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
     if (hash === "#saldo") {
       document.querySelector<HTMLButtonElement>("#saldo button")?.click();
     }

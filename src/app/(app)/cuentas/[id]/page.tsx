@@ -1,16 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteAccount } from "@/app/actions";
-import { AccountCard } from "@/components/account-card";
-import { AccountEditor } from "@/components/account-editor";
-import { BalanceAdjuster } from "@/components/balance-adjuster";
+import { AccountHero } from "@/components/account-editor";
 import { BalanceChart } from "@/components/balance-chart";
-import { UsageBar } from "@/components/usage-bar";
 import { OpenEditorFromHash } from "./open-editor";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
 import { balanceAt, formatCOP, formatDate, isDebt, monthlySeries, nextDueDate, relativeDay, daysBetween } from "@/lib/finance";
-import { SubmitButton } from "@/components/submit-button";
 
 export default async function AccountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -44,10 +39,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           ‹ {debt ? "Deudas" : "Inicio"}
         </Link>
         <h1 className="sr-only">{account.name}</h1>
-        <AccountCard account={account} balance={Math.max(0, balance)} caption={debt ? "Lo que debes hoy" : "Lo que tienes hoy"} size="lg" morph={account.id}>
-          {account.kind === "credit_card" && account.credit_limit ? <UsageBar usage={Math.max(0, balance) / account.credit_limit} onCard /> : null}
-        </AccountCard>
-        <BalanceAdjuster id={account.id} current={balance} debt={debt} today={today} />
+        <AccountHero account={account} balance={balance} debt={debt} today={today} movements={own.length} />
       </div>
 
       <section className="card" aria-labelledby="account-trend">
@@ -69,18 +61,6 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         </dl>
       </section>
 
-      <details id="editar" className="card scroll-mt-4 [&[open]>summary]:mb-5">
-        <summary className="display cursor-pointer text-2xl">Editar y personalizar</summary>
-        <AccountEditor account={account} />
-        <details className="mt-6 border-t border-line pt-4 text-sm">
-          <summary className="cursor-pointer font-medium text-ink-3 hover:text-ink">Eliminar esta cuenta</summary>
-          <form action={deleteAccount} className="mt-3 flex flex-wrap items-center gap-3">
-            <input type="hidden" name="id" value={account.id} />
-            <p className="text-ink-2">Se borran también sus {own.length} movimientos. No se puede deshacer.</p>
-            <SubmitButton className="btn-quiet border-debt/40 text-ink">Sí, eliminar</SubmitButton>
-          </form>
-        </details>
-      </details>
       <OpenEditorFromHash />
 
       <h2 className="display text-2xl">Movimientos de esta cuenta</h2>
