@@ -100,7 +100,15 @@ test("banks: Davibank and the Rappi cards get their own logos", async () => {
   assert.equal(bankKey("Davivienda"), "davivienda");
   assert.equal(bankKey("RappiCard"), "rappi");
   assert.equal(bankKey("RappiPay"), "rappi");
-  assert.deepEqual(bankDomains("davibank"), ["davibank.com.co", "davibank.com", "davivienda.com"]);
+  assert.deepEqual(bankDomains("davibank"), ["davibank.com.co", "davibank.com"], "never Davivienda's site: it is another logo");
+});
+
+test("banks: Colpatria and Scotiabank are now Davibank, with the official app's icon", async () => {
+  const { bankAppStoreId } = await import("./banks.ts");
+  assert.equal(bankKey("Scotiabank Colpatria"), "davibank");
+  assert.equal(bankKey("colpatria"), "davibank");
+  assert.equal(bankAppStoreId("davibank"), "999291025");
+  assert.equal(bankAppStoreId("bancolombia"), null);
 });
 
 test("loan with a term: instalments follow the schedule, not the balance estimate", () => {

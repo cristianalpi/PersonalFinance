@@ -9,20 +9,32 @@ interface Bank {
   domain: string;
   /** Other sites tried in order when the first has no icon (new or renamed brands). */
   fallbacks?: string[];
+  /**
+   * The bank's official app in the App Store (Colombia). Its icon is the logo, and it is tried
+   * first: renamed brands get a new app icon long before search engines have their new favicon.
+   */
+  appStoreId?: string;
 }
 
 const BANKS: Bank[] = [
   { key: "bancolombia", pattern: /bancolombia/i, color: "#FDDA24", domain: "bancolombia.com" },
   { key: "daviplata", pattern: /daviplata/i, color: "#E30613", domain: "daviplata.com" },
-  // Davibank (formerly Scotiabank Colpatria) is checked before Davivienda and Colpatria.
-  { key: "davibank", pattern: /davi ?bank/i, color: "#E30613", domain: "davibank.com.co", fallbacks: ["davibank.com", "davivienda.com"] },
+  // Davibank is what Scotiabank Colpatria became (2025): an account typed as Colpatria or Scotiabank is Davibank.
+  // Checked before Davivienda, which is another bank with another logo.
+  {
+    key: "davibank",
+    pattern: /davi ?bank|colpatria|scotiabank/i,
+    color: "#E30613",
+    domain: "davibank.com.co",
+    fallbacks: ["davibank.com"],
+    appStoreId: "999291025", // «DAVIbank Colombia»
+  },
   { key: "davivienda", pattern: /davivienda/i, color: "#E30613", domain: "davivienda.com" },
   { key: "bbva", pattern: /bbva/i, color: "#004481", domain: "bbva.com.co" },
   { key: "bogota", pattern: /banco de bogot[aá]|bogot[aá]/i, color: "#003B71", domain: "bancodebogota.com" },
   { key: "occidente", pattern: /occidente/i, color: "#0060A9", domain: "bancodeoccidente.com.co" },
   { key: "popular", pattern: /popular/i, color: "#00843D", domain: "bancopopular.com.co" },
   { key: "avvillas", pattern: /av ?villas/i, color: "#1F4E9E", domain: "avvillas.com.co" },
-  { key: "colpatria", pattern: /colpatria|scotiabank/i, color: "#EC111A", domain: "scotiabankcolpatria.com" },
   { key: "itau", pattern: /ita[uú]/i, color: "#EC7000", domain: "itau.co" },
   { key: "nu", pattern: /\bnu\b|nubank/i, color: "#820AD1", domain: "nu.com.co" },
   { key: "nequi", pattern: /nequi/i, color: "#DA0081", domain: "nequi.com.co" },
@@ -54,6 +66,11 @@ export function bankDomain(key: string): string | null {
 export function bankDomains(key: string): string[] {
   const bank = BANKS.find((b) => b.key === key);
   return bank ? [bank.domain, ...(bank.fallbacks ?? [])] : [];
+}
+
+/** The App Store id of a known bank's official app, whose icon is tried first. */
+export function bankAppStoreId(key: string): string | null {
+  return BANKS.find((b) => b.key === key)?.appStoreId ?? null;
 }
 
 /** Colours offered in the picker when there is no bank colour, and used as defaults. */

@@ -66,10 +66,9 @@ export function AccountCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           {account.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a small data URL the user uploaded; nothing to optimise
-            <img src={account.logo} alt="" className="size-10 shrink-0 rounded-xl bg-white object-contain p-1 shadow-sm" />
+            <BankLogo key={account.logo.slice(-32)} src={account.logo} fallback={monogram} />
           ) : bank ? (
-            <BankLogo key={bank} bank={bank} fallback={monogram} />
+            <BankLogo key={bank} src={`/api/bank-logo/${bank}`} fallback={monogram} />
           ) : (
             monogram
           )}

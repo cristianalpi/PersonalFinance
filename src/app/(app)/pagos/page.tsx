@@ -7,19 +7,111 @@ import { incomeChecklist, incomeRow, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
 import { formatCOP, monthName, monthlyChecklist, shiftMonth } from "@/lib/finance";
 import { SubmitButton } from "@/components/submit-button";
+import { PaymentsCalendar } from "@/components/payments-calendar";
+import { calendarEntries, calendarTotals, calendarWeeks } from "@/lib/calendar";
 
 const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const { accounts, txs, bills, incomes, budgets, skips, planReady, today } = await loadData();
   const current = today.slice(0, 7);
-  const asked = (await searchParams).mes;
-  // Only the current month and the past: future months have nothing to tick yet.
-  const month = asked && /^\d{4}-(0[1-9]|1[0-2])$/.test(asked) && asked <= current ? asked : current;
+  const { mes: asked, vista } = await searchParams;
+  const calendar = vista === "calendario";
+  const valid = Boolean(asked && /^\d{4}-(0[1-9]|1[0-2])$/.test(asked));
+  // The list: the current month and the past (future months have nothing to tick yet).
+  // The calendar also looks ahead, up to a year, to see what is coming.
+  const month = calendar
+    ? valid && asked! >= shiftMonth(current, -12) && asked! <= shiftMonth(current, 12)
+      ? asked!
+      : current
+    : valid && asked! <= current
+      ? asked!
+      : current;
   const editable = month === current;
+  const canGoNext = calendar ? month < shiftMonth(current, 12) : !editable;
+  const hrefFor = (m: string, view = calendar) => `/pagos?${view ? "vista=calendario&" : ""}mes=${m}`;
 
   const items = monthlyChecklist(accounts, bills, txs, month, today, skips);
   const incomeItems = incomeChecklist(incomes, txs, month, today, skips);
+
+  const header = (
+    <div className="pt-2">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="display text-3xl">
+          Pagos de {monthName(month)}
+          {month.slice(0, 4) !== current.slice(0, 4) ? ` ${month.slice(0, 4)}` : ""}
+        </h1>
+        <nav className="flex gap-2" aria-label="Cambiar de mes">
+          <Link href={hrefFor(shiftMonth(month, -1))} className="btn-quiet" aria-label={`Ver ${monthName(shiftMonth(month, -1))}`}>
+            ‹
+          </Link>
+          {canGoNext ? (
+            <Link href={hrefFor(shiftMonth(month, 1))} className="btn-quiet" aria-label={`Ver ${monthName(shiftMonth(month, 1))}`}>
+              ›
+            </Link>
+          ) : (
+            <span className="btn-quiet opacity-40" aria-hidden="true">
+              ›
+            </span>
+          )}
+        </nav>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2" role="group" aria-label="Cómo ver los pagos">
+          {calendar ? (
+            <Link href={hrefFor(month <= current ? month : current, false)} className="chip">
+              Lista
+            </Link>
+          ) : (
+            <span className="chip" aria-pressed="true">
+              Lista
+            </span>
+          )}
+          {calendar ? (
+            <span className="chip" aria-pressed="true">
+              Calendario
+            </span>
+          ) : (
+            <Link href={hrefFor(month, true)} className="chip">
+              Calendario
+            </Link>
+          )}
+        </div>
+        {!editable && (
+          <Link href={hrefFor(current)} className="text-sm font-medium text-brand">
+            Volver a {monthName(current)}
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+
+  if (calendar) {
+    const { byDate, undated } = calendarEntries(items, incomeItems);
+    const totals = calendarTotals([...Object.values(byDate).flat(), ...undated]);
+    return (
+      <>
+        {header}
+        <p className="-mt-3 text-sm text-ink-3">
+          {month < current ? "Así quedó ese mes." : month === current ? "Lo que te toca pagar y recibir, día por día." : "Lo que viene, según tus pagos fijos, deudas e ingresos de hoy."}{" "}
+          {(totals.toPay > 0 || totals.toReceive > 0) && (
+            <>
+              {month >= current ? "Por pagar" : "Quedó sin pagar"} <span className="num font-medium text-ink">{formatCOP(totals.toPay)}</span>
+              {totals.unknown > 0 ? ` (+${totals.unknown} de valor variable)` : ""}
+              {totals.toReceive > 0 && (
+                <>
+                  {" "}
+                  · por recibir <span className="num font-medium text-ink">{formatCOP(totals.toReceive)}</span>
+                </>
+              )}
+              .
+            </>
+          )}
+        </p>
+        <PaymentsCalendar key={month} weeks={calendarWeeks(month)} byDate={byDate} undated={undated} today={today} month={month} />
+      </>
+    );
+  }
   const plan = monthPlan(incomeItems, items, budgets);
 
   // One-time extras drop off the list once their month is over.
@@ -35,33 +127,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <div className="pt-2">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="display text-3xl">
-            Pagos de {monthName(month)}
-            {month.slice(0, 4) !== current.slice(0, 4) ? ` ${month.slice(0, 4)}` : ""}
-          </h1>
-          <nav className="flex gap-2" aria-label="Cambiar de mes">
-            <Link href={`/pagos?mes=${shiftMonth(month, -1)}`} className="btn-quiet" aria-label={`Ver ${monthName(shiftMonth(month, -1))}`}>
-              ‹
-            </Link>
-            {editable ? (
-              <span className="btn-quiet opacity-40" aria-hidden="true">
-                ›
-              </span>
-            ) : (
-              <Link href={`/pagos?mes=${shiftMonth(month, 1)}`} className="btn-quiet" aria-label={`Ver ${monthName(shiftMonth(month, 1))}`}>
-                ›
-              </Link>
-            )}
-          </nav>
-        </div>
-        <p className="mt-1 text-sm text-ink-3">
-          {editable
-            ? "Lo que entra y lo que tienes que pagar este mes. Al marcar uno se registra el movimiento; cada mes la lista vuelve a empezar."
-            : "Mes cerrado: así quedó la lista."}
-        </p>
-      </div>
+      {header}
+      <p className="-mt-3 text-sm text-ink-3">
+        {editable
+          ? "Lo que entra y lo que tienes que pagar este mes. Al marcar uno se registra el movimiento; cada mes la lista vuelve a empezar."
+          : "Mes cerrado: así quedó la lista."}
+      </p>
 
       {planReady && (incomes.length > 0 || budgets.length > 0) && <MonthPlanCard plan={plan} />}
 
