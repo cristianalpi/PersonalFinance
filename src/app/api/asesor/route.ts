@@ -41,20 +41,37 @@ export async function POST(request: Request) {
     messages[messages.length - 1].role === "user";
   if (!valid) return Response.json({ error: "Mensaje no válido." }, { status: 400 });
 
-  const data = await loadData();
-  const system = [ADVISOR_SYSTEM, advisorContext(data)];
+  // Always answer JSON: an uncaught error would send Next's HTML error page, which the chat cannot read.
+  let system: string[];
+  try {
+    system = [ADVISOR_SYSTEM, advisorContext(await loadData())];
+  } catch (error) {
+    console.error("asesor: loading the snapshot failed", error);
+    return Response.json({ error: "No pude leer tus datos para responder. Recarga la página e intenta de nuevo." }, { status: 500 });
+  }
   const fallback = "No pude armar una respuesta. Intenta preguntarlo de otra forma.";
 
   if (provider === "gemini") {
-    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL()}:generateContent`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
-      body: JSON.stringify(geminiRequest(system, messages, 6000)),
-    }).catch(() => null);
+    let upstream: Response | null = null;
+    let timedOut = false;
+    try {
+      upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL()}:generateContent`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
+        body: JSON.stringify(geminiRequest(system, messages, 6000)),
+        // Under maxDuration, so the answer is ours and not the platform's timeout page.
+        signal: AbortSignal.timeout(55_000),
+      });
+    } catch (error) {
+      timedOut = error instanceof DOMException && error.name === "TimeoutError";
+      console.error("asesor: Gemini request failed", error);
+    }
     if (!upstream?.ok) {
       const status = upstream?.status ?? 500;
-      const message =
-        status === 400 || status === 403
+      if (upstream) console.error("asesor: Gemini answered", status, (await upstream.text().catch(() => "")).slice(0, 500));
+      const message = timedOut
+        ? "El asesor tardó demasiado en responder. Intenta con una pregunta más concreta."
+        : status === 400 || status === 403
           ? "La clave de Gemini no es válida o el modelo no está disponible."
           : status === 404
             ? "Ese modelo de Gemini ya no existe; cambia GUACA_GEMINI_MODEL."
@@ -63,7 +80,8 @@ export async function POST(request: Request) {
               : "El asesor no respondió. Intenta de nuevo.";
       return Response.json({ error: message }, { status: 502 });
     }
-    return Response.json({ text: geminiText(await upstream.json()) || fallback });
+    const answer = await upstream.json().catch(() => ({}));
+    return Response.json({ text: geminiText(answer) || fallback });
   }
 
   const client = new Anthropic();

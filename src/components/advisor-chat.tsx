@@ -38,8 +38,14 @@ export function AdvisorChat() {
     setError(null);
     try {
       const res = await fetch("/api/asesor", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "El asesor no respondió.");
+      // A proxy timeout or crash answers with an HTML page, not our JSON.
+      const data: { text?: string; error?: string } | null = await res.json().catch(() => null);
+      if (!res.ok || !data?.text) {
+        throw new Error(
+          data?.error ??
+            (res.status === 504 ? "El asesor tardó demasiado en responder. Intenta con una pregunta más concreta." : `El asesor no respondió (error ${res.status}). Intenta de nuevo.`),
+        );
+      }
       setMessages([...next, { role: "assistant", content: data.text }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "El asesor no respondió.");
