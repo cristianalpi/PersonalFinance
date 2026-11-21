@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { requestOrigin } from "@/lib/request-origin";
 import { clearWalletName, signOut } from "@/app/actions";
 import { InstallCard } from "@/components/install-card";
+import { ShareInvite } from "@/components/share-invite";
 import { ScalePicker, ThemePicker } from "@/components/theme-toggle";
 import { TokenCard } from "@/components/token-card";
 import { loadData } from "@/lib/data";
@@ -20,6 +21,16 @@ export default async function SettingsPage() {
       <h1 className="display pt-2 text-3xl">Ajustes</h1>
 
       <InstallCard />
+
+      <section className="card flex flex-col gap-4">
+        <div>
+          <h2 className="display text-2xl">Invita a alguien</h2>
+          <p className="text-sm text-ink-3">
+            Comparte el enlace para que cree su propia cuenta. Cada persona ve solo sus datos: nadie puede ver los tuyos.
+          </p>
+        </div>
+        <ShareInvite origin={origin} />
+      </section>
 
       <section className="card flex flex-col gap-4">
         <div>

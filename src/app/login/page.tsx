@@ -4,8 +4,8 @@ import { APP_TAGLINE } from "@/lib/brand";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ enlace?: string }> }) {
-  const { enlace } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ enlace?: string; registro?: string }> }) {
+  const { enlace, registro } = await searchParams;
 
   return (
     <AuthShell subtitle={APP_TAGLINE}>
@@ -18,6 +18,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 pide uno nuevo
               </Link>
               .
+            </p>
+          )}
+          {registro && (
+            <p role="status" className="card text-sm text-ink-2">
+              <span className="font-semibold text-ink">Te invitaron a Guaca.</span> Escribe tu correo y una contraseña nueva y toca{" "}
+              <span className="font-medium text-ink">Crear cuenta</span>. Te llegará un correo para confirmar.
             </p>
           )}
           <LoginForm />

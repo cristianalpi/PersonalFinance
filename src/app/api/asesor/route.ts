@@ -1,15 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ADVISOR_SYSTEM, advisorContext } from "@/lib/advisor-context";
-import { GEMINI_MODEL, aiProvider, geminiRequest, geminiText, type ChatTurn } from "@/lib/ai-provider";
+import { GEMINI_MODEL, advisorStream, aiProvider, geminiRequest, geminiStreamUrl, type ChatTurn } from "@/lib/ai-provider";
 import { loadData } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 
-export const maxDuration = 60;
+// Only applies on Vercel; on Easypanel the limit is GEMINI_LIMIT_MS below.
+export const maxDuration = 300;
 
 type ChatMessage = ChatTurn;
 
 const MAX_TURNS = 30;
 const MAX_CHARS = 4000;
+/** The longest a streamed Gemini answer may run. */
+const GEMINI_LIMIT_MS = 3 * 60_000;
 
 /**
  * One turn of the advisor chat. The conversation lives in the browser; each
@@ -52,26 +55,25 @@ export async function POST(request: Request) {
   const fallback = "No pude armar una respuesta. Intenta preguntarlo de otra forma.";
 
   if (provider === "gemini") {
+    // Long answers (a month-by-month plan) take Gemini more than a minute, so the answer is streamed
+    // as it is written. The request stops if the person leaves the page, or after GEMINI_LIMIT_MS.
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(GEMINI_LIMIT_MS)]);
     let upstream: Response | null = null;
-    let timedOut = false;
     try {
-      upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL()}:generateContent`, {
+      upstream = await fetch(geminiStreamUrl(GEMINI_MODEL()), {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
         body: JSON.stringify(geminiRequest(system, messages, 6000)),
-        // Under maxDuration, so the answer is ours and not the platform's timeout page.
-        signal: AbortSignal.timeout(55_000),
+        signal,
       });
     } catch (error) {
-      timedOut = error instanceof DOMException && error.name === "TimeoutError";
       console.error("asesor: Gemini request failed", error);
     }
-    if (!upstream?.ok) {
+    if (!upstream?.ok || !upstream.body) {
       const status = upstream?.status ?? 500;
       if (upstream) console.error("asesor: Gemini answered", status, (await upstream.text().catch(() => "")).slice(0, 500));
-      const message = timedOut
-        ? "El asesor tardó demasiado en responder. Intenta con una pregunta más concreta."
-        : status === 400 || status === 403
+      const message =
+        status === 400 || status === 403
           ? "La clave de Gemini no es válida o el modelo no está disponible."
           : status === 404
             ? "Ese modelo de Gemini ya no existe; cambia GUACA_GEMINI_MODEL."
@@ -80,8 +82,24 @@ export async function POST(request: Request) {
               : "El asesor no respondió. Intenta de nuevo.";
       return Response.json({ error: message }, { status: 502 });
     }
-    const answer = await upstream.json().catch(() => ({}));
-    return Response.json({ text: geminiText(answer) || fallback });
+
+    const stream = advisorStream(upstream.body, {
+      fallback,
+      errorMessage(error) {
+        console.error("asesor: Gemini stream broke off", error);
+        return error instanceof Error && error.name === "TimeoutError"
+          ? "La respuesta tardó demasiado y se cortó. Pide una parte más concreta del plan."
+          : "La respuesta se cortó. Intenta de nuevo.";
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        // no-transform keeps Next from gzipping it (gzip holds pieces back); X-Accel-Buffering is for nginx-style proxies.
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no",
+      },
+    });
   }
 
   const client = new Anthropic();

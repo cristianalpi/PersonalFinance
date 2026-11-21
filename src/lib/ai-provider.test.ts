@@ -1,6 +1,52 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aiProvider, geminiRequest, geminiText } from "./ai-provider.ts";
+import { advisorStream, aiProvider, geminiChunkText, geminiRequest, geminiText, takeSseData } from "./ai-provider.ts";
+
+const piece = (text: string, thought = false) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text, thought }] } }] })}\n\n`;
+
+function sseFrom(chunks: string[]) {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  });
+}
+
+async function linesOf(stream: ReadableStream<Uint8Array>) {
+  const text = await new Response(stream).text();
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+}
+
+test("advisor stream: SSE events split across reads", () => {
+  assert.deepEqual(takeSseData("data: a\n\ndata: b"), { events: ["a"], rest: "data: b" });
+  assert.deepEqual(takeSseData("data: a\r\n\r\n: comment\n\n"), { events: ["a"], rest: "" });
+  assert.equal(geminiChunkText({ candidates: [{ content: { parts: [{ text: " primero " }] } }] }), " primero ");
+});
+
+test("advisor stream: answer pieces become JSON lines, thoughts are dropped", async () => {
+  const whole = piece("pensando", true) + piece("Abona ") + piece("primero.");
+  // Cut in the middle of an event, as the network does.
+  const lines = await linesOf(advisorStream(sseFrom([whole.slice(0, 40), whole.slice(40)]), { fallback: "nada", errorMessage: () => "x" }));
+  assert.deepEqual(lines, [{ text: "Abona " }, { text: "primero." }]);
+});
+
+test("advisor stream: empty answer gives the fallback, a broken stream gives an error line", async () => {
+  assert.deepEqual(await linesOf(advisorStream(sseFrom([piece("solo pienso", true)]), { fallback: "nada", errorMessage: () => "x" })), [{ text: "nada" }]);
+  // One piece arrives, then the connection drops on the next read.
+  let reads = 0;
+  const broken = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (reads++ === 0) controller.enqueue(new TextEncoder().encode(piece("Hola ")));
+      else controller.error(new Error("corte"));
+    },
+  });
+  assert.deepEqual(await linesOf(advisorStream(broken, { fallback: "nada", errorMessage: () => "Se cortó" })), [{ text: "Hola " }, { error: "Se cortó" }]);
+});
 
 test("advisor: Gemini first when both keys exist, then Claude, else off", () => {
   const saved = { g: process.env.GEMINI_API_KEY, a: process.env.ANTHROPIC_API_KEY };

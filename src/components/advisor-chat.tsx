@@ -22,11 +22,13 @@ export function AdvisorChat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The answer while it is still arriving. */
+  const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, busy]);
+    end.current?.scrollIntoView({ behavior: draft ? "auto" : "smooth", block: "end" });
+  }, [messages, busy, draft]);
 
   async function send(text: string) {
     const question = text.trim();
@@ -36,22 +38,53 @@ export function AdvisorChat() {
     setInput("");
     setBusy(true);
     setError(null);
+    let answer = "";
     try {
       const res = await fetch("/api/asesor", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next }) });
-      // A proxy timeout or crash answers with an HTML page, not our JSON.
-      const data: { text?: string; error?: string } | null = await res.json().catch(() => null);
-      if (!res.ok || !data?.text) {
-        throw new Error(
-          data?.error ??
-            (res.status === 504 ? "El asesor tardó demasiado en responder. Intenta con una pregunta más concreta." : `El asesor no respondió (error ${res.status}). Intenta de nuevo.`),
-        );
+      if (res.ok && res.body && res.headers.get("content-type")?.includes("ndjson")) {
+        // Streamed answer (Gemini): one JSON object per line, blank lines are heartbeats.
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = "";
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += value;
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const piece: { text?: string; error?: string } = JSON.parse(line);
+            if (piece.error) throw new Error(piece.error);
+            if (piece.text) {
+              answer += piece.text;
+              setDraft(answer);
+            }
+          }
+        }
+        if (!answer.trim()) throw new Error("El asesor no respondió. Intenta de nuevo.");
+      } else {
+        // A whole answer (Claude) or an error. A proxy timeout or crash answers with HTML, not our JSON.
+        const data: { text?: string; error?: string } | null = await res.json().catch(() => null);
+        if (!res.ok || !data?.text) {
+          throw new Error(
+            data?.error ??
+              (res.status === 504 ? "El asesor tardó demasiado en responder. Intenta con una pregunta más concreta." : `El asesor no respondió (error ${res.status}). Intenta de nuevo.`),
+          );
+        }
+        answer = data.text;
       }
-      setMessages([...next, { role: "assistant", content: data.text }]);
+      setMessages([...next, { role: "assistant", content: answer }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "El asesor no respondió.");
-      setMessages(messages);
-      setInput(question);
+      if (answer.trim()) {
+        // Keep the part that arrived; asking "sigue" continues it.
+        setMessages([...next, { role: "assistant", content: answer }]);
+      } else {
+        setMessages(messages);
+        setInput(question);
+      }
     } finally {
+      setDraft("");
       setBusy(false);
     }
   }
@@ -79,7 +112,14 @@ export function AdvisorChat() {
               )}
             </li>
           ))}
-          {busy && (
+          {draft && (
+            <li className="max-w-[92%] self-start rounded-3xl bg-surface/70 px-4 py-3">
+              <div className="advisor-md text-[15px] leading-relaxed">
+                <Markdown remarkPlugins={[remarkGfm]}>{draft}</Markdown>
+              </div>
+            </li>
+          )}
+          {busy && !draft && (
             <li className="self-start rounded-3xl bg-surface/70 px-4 py-3" role="status" aria-label="El asesor está pensando">
               <span className="flex gap-1.5">
                 {[0, 1, 2].map((i) => (
