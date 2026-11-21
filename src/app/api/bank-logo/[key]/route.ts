@@ -1,6 +1,7 @@
 import { bankAppStoreId, bankDomains } from "@/lib/banks";
 
 const WEEK = 60 * 60 * 24 * 7;
+const DAY = 60 * 60 * 24;
 
 /**
  * The current icon of a bank's official app. Apple's lookup gives its address; only images on
@@ -39,8 +40,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ key
     if (!upstream?.ok || !type.startsWith("image/")) continue;
     const body = await upstream.arrayBuffer();
     if (body.byteLength < 200) continue; // a blank placeholder, not a logo
+    // A day in the browser (the server keeps its copy a week), so a corrected logo shows up soon.
     return new Response(body, {
-      headers: { "content-type": type, "cache-control": `public, max-age=${WEEK}, stale-while-revalidate=${WEEK}` },
+      headers: { "content-type": type, "cache-control": `public, max-age=${DAY}, stale-while-revalidate=${WEEK}` },
     });
   }
   return new Response("Sin logo.", { status: 404 });

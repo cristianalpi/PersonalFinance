@@ -13,6 +13,25 @@ import { calendarEntries, calendarTotals, calendarWeeks } from "@/lib/calendar";
 
 const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
+/** One option of the segmented control: a link, or the current view with its tick. */
+function Segment({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  const tick = (
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+  return active ? (
+    <span className="segment" aria-current="page">
+      {tick}
+      {children}
+    </span>
+  ) : (
+    <Link href={href} className="segment">
+      {children}
+    </Link>
+  );
+}
+
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const { accounts, txs, bills, incomes, budgets, skips, planReady, goals, deposits, today } = await loadData();
   const current = today.slice(0, 7);
@@ -35,6 +54,9 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   // Bills, card and loan payments, and the monthly saving of goals with a plan.
   const items = [...monthlyChecklist(accounts, bills, txs, month, today, skips), ...goalChecklist(goals, deposits, month, today, skips)].sort(byDue);
   const incomeItems = incomeChecklist(incomes, txs, month, today, skips);
+  // Where a payment can come from: cards and savings for a bill, savings and cash for the rest.
+  const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
+  const savings = accounts.filter((a) => a.kind === "savings" || a.kind === "cash").map(({ id, name }) => ({ id, name }));
 
   const header = (
     <div className="pt-2">
@@ -58,27 +80,16 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           )}
         </nav>
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2" role="group" aria-label="Cómo ver los pagos">
-          {calendar ? (
-            <Link href={hrefFor(month <= current ? month : current, false)} className="chip">
-              Lista
-            </Link>
-          ) : (
-            <span className="chip" aria-pressed="true">
-              Lista
-            </span>
-          )}
-          {calendar ? (
-            <span className="chip" aria-pressed="true">
-              Calendario
-            </span>
-          ) : (
-            <Link href={hrefFor(month, true)} className="chip">
-              Calendario
-            </Link>
-          )}
-        </div>
+      {/* Segmented control, centred: the active view is tinted and ticked. */}
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <nav className="segmented" aria-label="Cómo ver los pagos">
+          <Segment href={hrefFor(month <= current ? month : current, false)} active={!calendar}>
+            Lista
+          </Segment>
+          <Segment href={hrefFor(month, true)} active={calendar}>
+            Calendario
+          </Segment>
+        </nav>
         {!editable && (
           <Link href={hrefFor(current)} className="text-sm font-medium text-brand">
             Volver a {monthName(current)}
@@ -110,7 +121,18 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             </>
           )}
         </p>
-        <PaymentsCalendar key={month} weeks={calendarWeeks(month)} byDate={byDate} undated={undated} today={today} month={month} />
+        <PaymentsCalendar
+          key={month}
+          weeks={calendarWeeks(month)}
+          byDate={byDate}
+          rows={[...items, ...incomeItems.map(incomeRow)]}
+          undated={undated}
+          today={today}
+          month={month}
+          editable={editable}
+          spendable={spendable}
+          savings={savings}
+        />
       </>
     );
   }
@@ -124,8 +146,6 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const pendingAmount = counted.filter((i) => !i.paid).reduce((sum, i) => sum + (i.expected ?? 0), 0);
   const variable = counted.filter((i) => !i.paid && !i.expected).length;
 
-  const spendable = accounts.filter((a) => a.kind !== "loan").map(({ id, name }) => ({ id, name }));
-  const savings = accounts.filter((a) => a.kind === "savings" || a.kind === "cash").map(({ id, name }) => ({ id, name }));
 
   return (
     <>

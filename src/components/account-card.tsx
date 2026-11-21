@@ -1,5 +1,5 @@
 import { ViewTransition } from "react";
-import { bankKey, cardColor, cardInk, initials, shade } from "@/lib/banks";
+import { bankKey, bankLogoUrl, cardColor, cardInk, initials, shade } from "@/lib/banks";
 import { BankLogo } from "./bank-logo";
 import { Icon } from "./icons";
 import { KIND_LABEL, formatCOP, type Account } from "@/lib/finance";
@@ -68,7 +68,7 @@ export function AccountCard({
           {account.logo ? (
             <BankLogo key={account.logo.slice(-32)} src={account.logo} fallback={monogram} />
           ) : bank ? (
-            <BankLogo key={bank} src={`/api/bank-logo/${bank}`} fallback={monogram} />
+            <BankLogo key={bank} src={bankLogoUrl(bank)} fallback={monogram} />
           ) : (
             monogram
           )}

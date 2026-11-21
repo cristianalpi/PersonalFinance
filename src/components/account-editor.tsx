@@ -392,7 +392,7 @@ export function AccountHero({
                 <span className="block text-xs text-ink-3">Color, imagen y nombre</span>
               </span>
             </button>
-            <button type="button" className="liquid flex items-center gap-3 rounded-2xl p-3 text-left" onClick={() => open("data")}>
+            <button type="button" className="liquid flex items-center gap-3 rounded-2xl p-3 text-left" onClick={() => open("data", !debt)}>
               <span className={`icon-tile ${debt ? "tone-owe" : "tone-have"}`} aria-hidden="true">
                 <Icon name="adjust" />
               </span>
@@ -421,10 +421,21 @@ export function AccountHero({
         <div className="card rise flex flex-col gap-5">
           {panelTitle(debt ? "Datos" : "Saldo", debt ? `Los números de ${noun}: con ellos se calculan intereses, cupo y cuotas.` : "Cuadra el saldo con lo que ves en el banco.")}
           <section className="flex flex-col gap-2" aria-label="Saldo">
-            <p className="text-sm text-ink-2">
-              {debt ? "Saldo de la deuda hoy" : "Saldo hoy"}: <span className="num font-semibold text-ink">{formatCOP(balance)}</span>
-            </p>
-            <BalanceAdjuster key={String(balanceOpen)} id={account.id} current={balance} debt={debt} today={today} defaultOpen={balanceOpen} />
+            {/* Savings and cash open straight on the form, which already says the current balance. */}
+            {debt && (
+              <p className="text-sm text-ink-2">
+                Saldo de la deuda hoy: <span className="num font-semibold text-ink">{formatCOP(balance)}</span>
+              </p>
+            )}
+            <BalanceAdjuster
+              key={String(balanceOpen)}
+              id={account.id}
+              current={balance}
+              debt={debt}
+              today={today}
+              defaultOpen={balanceOpen || !debt}
+              onCancel={debt ? undefined : close}
+            />
           </section>
           {debt && <div className="border-t border-line pt-5">{form}</div>}
 

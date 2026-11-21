@@ -68,6 +68,13 @@ export function bankDomains(key: string): string[] {
   return bank ? [bank.domain, ...(bank.fallbacks ?? [])] : [];
 }
 
+/**
+ * Bump when a bank's logo source changes (a renamed brand, a new icon): browsers keep the image
+ * for a day, and a new address makes them fetch the new one at once.
+ */
+export const LOGO_VERSION = 2;
+export const bankLogoUrl = (key: string) => `/api/bank-logo/${key}?v=${LOGO_VERSION}`;
+
 /** The App Store id of a known bank's official app, whose icon is tried first. */
 export function bankAppStoreId(key: string): string | null {
   return BANKS.find((b) => b.key === key)?.appStoreId ?? null;

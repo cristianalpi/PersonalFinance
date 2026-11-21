@@ -10,7 +10,22 @@ import { SubmitButton } from "./submit-button";
  * "Actualizar saldo": the person types what the bank shows today and the
  * difference is recorded as a movement, so history and balance stay in step.
  */
-export function BalanceAdjuster({ id, current, debt, today, defaultOpen = false }: { id: string; current: number; debt: boolean; today: string; defaultOpen?: boolean }) {
+export function BalanceAdjuster({
+  id,
+  current,
+  debt,
+  today,
+  defaultOpen = false,
+  onCancel,
+}: {
+  id: string;
+  current: number;
+  debt: boolean;
+  today: string;
+  defaultOpen?: boolean;
+  /** What «Cancelar» does when the form is all there is (it closes the whole panel). */
+  onCancel?: () => void;
+}) {
   const [state, action] = useActionState<FormState, FormData>(adjustBalance, {});
   const [open, setOpen] = useState(defaultOpen);
 
@@ -37,7 +52,7 @@ export function BalanceAdjuster({ id, current, debt, today, defaultOpen = false 
               <input className="input" type="date" name="occurred_on" defaultValue={today} max={today} required />
             </label>
             <div className="flex gap-2">
-              <button type="button" className="btn-quiet h-11" onClick={() => setOpen(false)}>
+              <button type="button" className="btn-quiet h-11" onClick={() => (onCancel ? onCancel() : setOpen(false))}>
                 Cancelar
               </button>
               <SubmitButton className="btn h-11">Guardar</SubmitButton>
