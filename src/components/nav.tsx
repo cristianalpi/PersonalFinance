@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 
 interface Item {
@@ -50,6 +50,74 @@ export function Nav({ pending }: { pending: number }) {
     if (TABS.findIndex((t) => t.href === href) !== current) setTapped(href);
   };
 
+  // Phones: press and slide along the bar, like iOS's liquid glass tab bar. The bubble lifts and
+  // follows the finger, the tab under it lights up, and letting go opens that tab. A plain tap
+  // (under 8 px of movement) stays an ordinary link.
+  const router = useRouter();
+  const bar = useRef<HTMLElement>(null);
+  const gesture = useRef<{ id: number; startX: number; dragging: boolean } | null>(null);
+  const swallowClick = useRef(false);
+  const lastIndex = useRef(-1);
+  const [drag, setDrag] = useState<{ left: number; index: number } | null>(null);
+
+  const measure = (clientX: number) => {
+    const rect = bar.current!.getBoundingClientRect();
+    const pad = 6; // the bar's p-1.5
+    const width = (rect.width - pad * 2) / TABS.length;
+    const x = clientX - rect.left - pad;
+    return {
+      index: Math.min(TABS.length - 1, Math.max(0, Math.floor(x / width))),
+      left: Math.min((TABS.length - 1) * width, Math.max(0, x - width / 2)),
+    };
+  };
+  const scrub = {
+    onPointerDown(e: React.PointerEvent) {
+      if (e.button !== 0) return;
+      swallowClick.current = false;
+      gesture.current = { id: e.pointerId, startX: e.clientX, dragging: false };
+    },
+    onPointerMove(e: React.PointerEvent) {
+      const g = gesture.current;
+      if (!g || g.id !== e.pointerId) return;
+      if (!g.dragging) {
+        if (Math.abs(e.clientX - g.startX) < 8) return;
+        g.dragging = true;
+        bar.current?.setPointerCapture(e.pointerId);
+        lastIndex.current = -1;
+      }
+      const next = measure(e.clientX);
+      if (lastIndex.current !== -1 && next.index !== lastIndex.current) navigator.vibrate?.(6);
+      lastIndex.current = next.index;
+      setDrag(next);
+    },
+    onPointerUp(e: React.PointerEvent) {
+      const g = gesture.current;
+      gesture.current = null;
+      if (!g?.dragging) return;
+      // The release may still fire a click on a link: the drag decides, not that click.
+      swallowClick.current = true;
+      setTimeout(() => (swallowClick.current = false), 400);
+      setDrag(null);
+      const { index } = measure(e.clientX);
+      if (index !== current) {
+        setTapped(TABS[index].href);
+        window.dispatchEvent(new Event("guaca:navigate"));
+        router.push(TABS[index].href);
+      }
+    },
+    onPointerCancel() {
+      gesture.current = null;
+      setDrag(null);
+    },
+    onClickCapture(e: React.MouseEvent) {
+      if (!swallowClick.current) return;
+      swallowClick.current = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+  };
+  const shown = drag ? drag.index : active;
+
   // Desktop: the pill measures the active link, then glides to it.
   const desk = useRef<HTMLElement>(null);
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
@@ -93,19 +161,31 @@ export function Nav({ pending }: { pending: number }) {
       {/* Phones and tablets: a floating liquid-glass bar; a glass bubble slides under the chosen tab. */}
       {/* The transition name sits on the glass itself: on an ancestor it would cut the blur off from the page behind. */}
       <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
-        <nav className="liquid liquid-bar relative grid grid-cols-5 rounded-[1.75rem] p-1.5" aria-label="Secciones" style={{ viewTransitionName: "tab-bar" }}>
+        <nav
+          ref={bar}
+          className="tab-scrub liquid liquid-bar relative grid grid-cols-5 rounded-[1.75rem] p-1.5"
+          aria-label="Secciones"
+          style={{ viewTransitionName: "tab-bar" }}
+          {...scrub}
+        >
           <span aria-hidden="true" className="pointer-events-none absolute inset-y-1.5 left-1.5 w-[calc((100%-0.75rem)/5)]">
             <span
-              className="nav-glide liquid-bubble block h-full rounded-[1.4rem]"
-              style={{ transform: `translateX(${Math.max(active, 0) * 100}%) scale(${active < 0 ? 0.6 : 1})`, opacity: active < 0 ? 0 : 1 }}
+              className={`nav-glide liquid-bubble block h-full rounded-[1.4rem] ${drag ? "liquid-bubble-lifted" : ""}`}
+              style={
+                drag
+                  ? // Follows the finger 1:1, slightly bigger, like a lens lifted off the bar.
+                    { transform: `translateX(${drag.left}px) scale(1.12)`, opacity: 1, transition: "none" }
+                  : { transform: `translateX(${Math.max(active, 0) * 100}%) scale(${active < 0 ? 0.6 : 1})`, opacity: active < 0 ? 0 : 1 }
+              }
             />
           </span>
           {TABS.map((item, i) => {
-            const on = i === active;
+            const on = i === shown;
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                draggable={false}
                 onClick={tap(item.href)}
                 aria-current={i === current ? "page" : undefined}
                 className={`relative flex flex-col items-center gap-0.5 rounded-[1.4rem] py-1.5 text-[11px] font-semibold transition-colors duration-300 ${on ? "text-brand" : "text-ink-2"}`}

@@ -29,8 +29,14 @@ export function NavProgress() {
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
       setActive(true);
     };
+    // Navigations that are not a link click (sliding along the tab bar) announce themselves.
+    const onNavigate = () => setActive(true);
     document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
+    window.addEventListener("guaca:navigate", onNavigate);
+    return () => {
+      document.removeEventListener("click", onClick);
+      window.removeEventListener("guaca:navigate", onNavigate);
+    };
   }, []);
 
   useEffect(() => {
