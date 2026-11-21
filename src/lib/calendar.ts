@@ -7,7 +7,7 @@ export type EntryStatus = "paid" | "pending" | "overdue" | "skipped";
 
 export interface CalendarEntry {
   date: string;
-  type: "bill" | "debt" | "income";
+  type: "bill" | "debt" | "income" | "goal";
   id: string;
   name: string;
   /** Expected amount, or what was paid/received once it was; null when it varies. */

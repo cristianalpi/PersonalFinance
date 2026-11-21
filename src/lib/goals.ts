@@ -1,6 +1,6 @@
 // Goals: save an amount by a date, or clear a debt by a date. Pure, so it is tested.
 import { monthlyRate } from "./advice.ts";
-import { balanceAt, daysBetween, type Account, type Tx } from "./finance.ts";
+import { balanceAt, daysBetween, dueDates, monthEnd, shiftMonth, type Account, type ChecklistItem, type Skip, type Tx } from "./finance.ts";
 
 export type GoalKind = "save" | "payoff";
 
@@ -14,6 +14,10 @@ export interface Goal {
   account_id: string | null;
   start_balance: number | null;
   created_on: string;
+  /** Savings plan: what is set aside each month, on which day, and (optionally) from which income. */
+  plan_amount?: number | null;
+  plan_day?: number | null;
+  plan_income_id?: string | null;
 }
 
 export interface GoalDeposit {
@@ -109,5 +113,98 @@ export function goalView(goal: Goal, deposits: GoalDeposit[], accounts: Account[
     perWeek: goal.kind === "payoff" ? roundUp((perMonth * 12) / 52) : roundUp(remaining / weeks),
     expected,
     status,
+  };
+}
+
+/**
+ * The plan's instalment dates from month `from` up to the goal's date: the plan's day each month,
+ * never after the goal's date and never before the goal existed (a plan made on the 21st with
+ * day 15 starts next month).
+ */
+export function planDates(planDay: number, from: string, createdOn: string, targetDate: string): string[] {
+  const dates: string[] = [];
+  for (let m = from; m <= targetDate.slice(0, 7); m = shiftMonth(m, 1)) {
+    const planned = dueDates(planDay, `${m}-01`, 1)[0];
+    const date = planned > targetDate ? targetDate : planned;
+    if (date >= createdOn) dates.push(date);
+  }
+  return dates;
+}
+
+/** What to set aside on each of the plan's dates to reach the goal on time, rounded up to $1.000. */
+export function suggestedPlan(remaining: number, planDay: number, today: string, targetDate: string, createdOn = today): number {
+  const count = planDates(planDay, today.slice(0, 7), createdOn > today ? createdOn : today, targetDate).length;
+  return roundUp(remaining / Math.max(1, count));
+}
+
+const savedBy = (goal: Goal, deposits: GoalDeposit[], before: string) =>
+  deposits.filter((d) => d.goal_id === goal.id && d.occurred_on < before).reduce((sum, d) => sum + d.amount, 0);
+
+/**
+ * The month's savings instalments: one row in Pagos per savings goal with a plan, from the month
+ * it was created to the month of its date. Ticked by a deposit to the goal that month. A goal
+ * already reached drops off, unless something was deposited this month.
+ */
+export function goalChecklist(goals: Goal[], deposits: GoalDeposit[], month: string, today: string, skips: Skip[] = []): ChecklistItem[] {
+  const first = `${month}-01`;
+  const last = monthEnd(month);
+  const items: ChecklistItem[] = [];
+  for (const goal of goals) {
+    if (goal.kind !== "save" || !goal.plan_amount || !goal.plan_day || !goal.target_amount) continue;
+    if (month < goal.created_on.slice(0, 7) || month > goal.target_date.slice(0, 7)) continue;
+    const thisMonth = deposits.filter((d) => d.goal_id === goal.id && d.occurred_on >= first && d.occurred_on <= last && d.amount > 0);
+    const missing = goal.target_amount - savedBy(goal, deposits, first);
+    if (missing <= 0 && thisMonth.length === 0) continue;
+    const skip = skips.find((s) => s.item_type === "goal" && s.item_id === goal.id && s.month === month) ?? null;
+    // The plan's day, but never after the goal's own date.
+    const planned = dueDates(goal.plan_day, first, 1)[0];
+    const due = planned > goal.target_date ? goal.target_date : planned;
+    const expected = Math.min(goal.plan_amount, Math.max(missing, 0)) || goal.plan_amount;
+    const paid = thisMonth.length > 0;
+    // A plan day that had already passed when the goal was created starts next month.
+    if (!paid && due < goal.created_on) continue;
+    items.push({
+      type: "goal",
+      id: goal.id,
+      name: `Ahorro: ${goal.name}`,
+      due,
+      expected,
+      paid,
+      paidAmount: thisMonth.reduce((sum, d) => sum + d.amount, 0),
+      overdue: !paid && due < today && !skip,
+      skipped: paid ? null : skip,
+      quick: { amount: expected, accountId: null },
+    });
+  }
+  return items;
+}
+
+export interface PlanOutlook {
+  /** Plan instalments still ahead, up to the goal's date (this month's counts if not yet saved). */
+  instalments: number;
+  /** Where the plan leaves you on the goal's date. */
+  projected: number;
+  enough: boolean;
+  /** What would still be missing on that date. */
+  shortfall: number;
+  /** The next instalment's date, or null when none is left. */
+  next: string | null;
+}
+
+/** Whether keeping the plan reaches the goal on time. */
+export function planOutlook(view: GoalView, deposits: GoalDeposit[], today: string): PlanOutlook | null {
+  const { goal } = view;
+  if (goal.kind !== "save" || !goal.plan_amount || !goal.plan_day) return null;
+  const month = today.slice(0, 7);
+  const savedThisMonth = deposits.some((d) => d.goal_id === goal.id && d.occurred_on >= `${month}-01` && d.occurred_on <= monthEnd(month) && d.amount > 0);
+  const dates = planDates(goal.plan_day, savedThisMonth ? shiftMonth(month, 1) : month, goal.created_on, goal.target_date);
+  const instalments = dates.length;
+  const projected = view.achieved + instalments * goal.plan_amount;
+  return {
+    instalments,
+    projected,
+    enough: projected >= view.target,
+    shortfall: Math.max(0, view.target - projected),
+    next: dates[0] ?? null,
   };
 }

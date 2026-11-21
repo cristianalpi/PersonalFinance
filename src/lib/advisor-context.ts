@@ -21,7 +21,7 @@ import {
   type Tx,
   monthlyChecklist,
 } from "./finance.ts";
-import { goalView, type Goal, type GoalDeposit } from "./goals.ts";
+import { goalChecklist, goalView, planOutlook, type Goal, type GoalDeposit } from "./goals.ts";
 import { purchaseView, type CardPurchase } from "./installments.ts";
 import { planDebts, simulate } from "./planner.ts";
 
@@ -122,7 +122,7 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, incomes 
     for (const k of monthSkips) lines.push(`- ${names[k.item_id] ?? "ítem"}${k.note ? `: ${k.note}` : ""}`);
   }
   if (incomes.length) {
-    const plan = monthPlan(incomeChecklist(incomes, txs, current, today, skips), monthlyChecklist(accounts, bills, txs, current, today, skips), budgets);
+    const plan = monthPlan(incomeChecklist(incomes, txs, current, today, skips), [...monthlyChecklist(accounts, bills, txs, current, today, skips), ...goalChecklist(goals, deposits, current, today, skips)], budgets);
     lines.push(
       `\nReparto del mes (calculado por la app): ingresos ${formatCOP(plan.income)} − obligaciones ${formatCOP(plan.obligations)}${plan.unknownObligations ? ` (+${plan.unknownObligations} de valor variable)` : ""} − presupuestos ${formatCOP(plan.budgets)} = ${plan.free >= 0 ? "libre" : "faltante"} ${formatCOP(Math.abs(plan.free))}.`,
     );
@@ -145,8 +145,14 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, incomes 
     lines.push("\n## Metas");
     for (const g of goals) {
       const v = goalView(g, deposits, accounts, txs, today);
+      const o = planOutlook(v, deposits, today);
+      const plan = o
+        ? `; plan: abona ${formatCOP(g.plan_amount!)} el día ${g.plan_day} de cada mes (${o.instalments} abonos más, ${o.enough ? "llega a tiempo" : `le faltarían ${formatCOP(o.shortfall)}`})`
+        : g.kind === "save"
+          ? "; sin plan de ahorro programado"
+          : "";
       lines.push(
-        `- ${g.name} (${g.kind === "save" ? "ahorro" : "pagar deuda"}): ${formatCOP(v.achieved)} de ${formatCOP(v.target)} para el ${g.target_date}; necesita ${formatCOP(v.perMonth)}/mes; estado: ${v.status}`,
+        `- ${g.name} (${g.kind === "save" ? "ahorro" : "pagar deuda"}): ${formatCOP(v.achieved)} de ${formatCOP(v.target)} para el ${g.target_date}; necesita ${formatCOP(v.perMonth)}/mes; estado: ${v.status}${plan}`,
       );
     }
   }

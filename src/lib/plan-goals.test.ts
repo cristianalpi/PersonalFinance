@@ -97,3 +97,47 @@ test("advisor snapshot lists debts, the simulation and goals in plain text", asy
     assert.ok(text.includes(piece), `missing ${piece}`);
   }
 });
+
+test("goal plan: one row a month in Pagos, ticked by a deposit that month", async () => {
+  const { goalChecklist } = await import("./goals.ts");
+  const closet = goal({ kind: "save", name: "Armario", target_amount: 1_200_000, target_date: "2027-06-30", created_on: "2026-11-21", plan_amount: 100_000, plan_day: 30 });
+  const [row] = goalChecklist([closet], [], "2026-11", "2026-11-21");
+  assert.deepEqual([row.type, row.name, row.due, row.expected, row.paid, row.overdue], ["goal", "Ahorro: Armario", "2026-11-30", 100_000, false, false]);
+  const paid = goalChecklist([closet], [{ id: "d", goal_id: "g", amount: 100_000, occurred_on: "2026-11-30" }], "2026-11", "2026-12-01")[0];
+  assert.deepEqual([paid.paid, paid.paidAmount], [true, 100_000]);
+  assert.equal(goalChecklist([closet], [], "2026-12", "2026-12-31")[0].overdue, true, "the day passed with nothing saved");
+  assert.equal(goalChecklist([closet], [], "2026-10", "2026-11-21").length, 0, "not before it was created");
+  assert.equal(goalChecklist([closet], [], "2027-07", "2026-11-21").length, 0, "not after its date");
+  assert.equal(goalChecklist([{ ...closet, plan_amount: null, plan_day: null }], [], "2026-11", "2026-11-21").length, 0, "no plan, no row");
+});
+
+test("goal plan: the last instalment asks only what is missing, and none once reached", async () => {
+  const { goalChecklist } = await import("./goals.ts");
+  const closet = goal({ kind: "save", target_amount: 1_200_000, target_date: "2027-06-30", created_on: "2026-11-01", plan_amount: 100_000, plan_day: 30 });
+  assert.equal(goalChecklist([closet], [{ id: "d", goal_id: "g", amount: 1_150_000, occurred_on: "2026-12-01" }], "2027-01", "2027-01-05")[0].expected, 50_000);
+  assert.equal(goalChecklist([closet], [{ id: "d", goal_id: "g", amount: 1_200_000, occurred_on: "2026-12-01" }], "2027-01", "2027-01-05").length, 0);
+  const late = goal({ ...closet, target_date: "2027-06-15" });
+  assert.equal(goalChecklist([late], [], "2027-06", "2027-06-01")[0].due, "2027-06-15", "never after the goal's own date");
+});
+
+test("goal plan: whether keeping it arrives on time", async () => {
+  const { planOutlook } = await import("./goals.ts");
+  const closet = goal({ kind: "save", target_amount: 1_200_000, target_date: "2027-06-30", created_on: "2026-11-21", plan_amount: 100_000, plan_day: 30 });
+  const short = planOutlook(goalView(closet, [], [], [], "2026-11-21"), [], "2026-11-21")!;
+  assert.deepEqual([short.instalments, short.projected, short.enough, short.shortfall, short.next], [8, 800_000, false, 400_000, "2026-11-30"], "nov to jun: 8 × $100.000");
+  const enough = planOutlook(goalView({ ...closet, plan_amount: 150_000 }, [], [], [], "2026-11-21"), [], "2026-11-21")!;
+  assert.equal(enough.enough, true);
+  const saved = [{ id: "d", goal_id: "g", amount: 100_000, occurred_on: "2026-11-21" }];
+  assert.equal(planOutlook(goalView(closet, saved, [], [], "2026-11-21"), saved, "2026-11-21")!.next, "2026-12-30", "this month's is done");
+  assert.equal(planOutlook(goalView(goal({ kind: "save", target_amount: 1, target_date: "2027-01-01" }), [], [], [], "2026-11-21"), [], "2026-11-21"), null);
+});
+
+test("goal plan: a plan day already past when the goal is created starts next month", async () => {
+  const { goalChecklist, planDates, suggestedPlan } = await import("./goals.ts");
+  const g = goal({ kind: "save", target_amount: 600_000, target_date: "2027-04-30", created_on: "2026-11-21", plan_amount: 100_000, plan_day: 15 });
+  assert.equal(goalChecklist([g], [], "2026-11", "2026-11-21").length, 0, "not overdue on the day it was created");
+  assert.equal(goalChecklist([g], [], "2026-12", "2026-12-01")[0].due, "2026-12-15");
+  assert.deepEqual(planDates(15, "2026-11", "2026-11-21", "2027-04-30"), ["2026-12-15", "2027-01-15", "2027-02-15", "2027-03-15", "2027-04-15"]);
+  assert.equal(suggestedPlan(600_000, 15, "2026-11-21", "2027-04-30"), 120_000, "5 instalments");
+  assert.equal(suggestedPlan(1_000_000, 30, "2026-11-21", "2027-02-28"), 250_000, "nov 30, dec 30, jan 30 and feb 28");
+});

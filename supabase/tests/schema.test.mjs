@@ -191,3 +191,13 @@ test("incomes: a one-time income has one month, never a yearly pattern too", asy
   await assert.rejects(as(ANA, "insert into incomes (name, day, once_month) values ('X', 1, '2026-13')"), /check constraint/);
   await assert.rejects(as(ANA, "insert into incomes (name, day, once_month, months) values ('X', 1, '2026-12', '{12}')"), /check constraint/);
 });
+
+test("goal plans: amount and day go together, the income must be one's own, and goals can be skipped", async () => {
+  const [salary] = await as(ANA, "select id from incomes where name = 'Salario'");
+  const [betoIncome] = await as(BETO, "select id from incomes limit 1");
+  const [closet] = await as(ANA, "insert into goals (kind, name, target_amount, target_date, plan_amount, plan_day, plan_income_id) values ('save', 'Armario', 1200000, '2027-06-30', 100000, 30, $1) returning id", [salary.id]);
+  await assert.rejects(as(ANA, "insert into goals (kind, name, target_amount, target_date, plan_amount) values ('save', 'X', 1, '2027-01-01', 100)"), /check constraint/, "an amount without a day");
+  await assert.rejects(as(ANA, "insert into goals (kind, name, target_amount, target_date, plan_amount, plan_day) values ('save', 'X', 1, '2027-01-01', 100, 32)"), /check constraint/);
+  await assert.rejects(as(ANA, "update goals set plan_income_id = $1 where id = $2", [betoIncome.id, closet.id]), /row-level security/, "someone else's income");
+  await as(ANA, "insert into checklist_skips (item_type, item_id, month) values ('goal', $1, '2026-12')", [closet.id]);
+});

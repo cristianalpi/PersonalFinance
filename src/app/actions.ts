@@ -350,7 +350,12 @@ export async function markPaid(_prev: FormState, form: FormData): Promise<FormSt
   const id = text(form, "id");
   const account_id = text(form, "account_id") || null;
 
-  if (form.get("type") === "income") {
+  if (form.get("type") === "goal") {
+    const { data: goal } = await supabase.from("goals").select("id").eq("id", id).maybeSingle();
+    if (!goal) return { error: "Esa meta ya no existe." };
+    const { error } = await supabase.from("goal_deposits").insert({ goal_id: goal.id, amount, occurred_on });
+    if (error) return { error: `No se pudo guardar: ${error.message}` };
+  } else if (form.get("type") === "income") {
     if (!account_id) return { error: "Elige a qué cuenta llegó." };
     const [{ data: income }, { data: target }] = await Promise.all([
       supabase.from("incomes").select("id, name").eq("id", id).maybeSingle(),
@@ -398,6 +403,13 @@ export async function unmarkPaid(form: FormData) {
   const [year, m] = month.split("-").map(Number);
   const last = `${month}-${String(new Date(Date.UTC(year, m, 0)).getUTCDate()).padStart(2, "0")}`;
   const id = text(form, "id");
+
+  if (form.get("type") === "goal") {
+    const { error } = await supabase.from("goal_deposits").delete().eq("goal_id", id).gt("amount", 0).gte("occurred_on", `${month}-01`).lte("occurred_on", last);
+    if (error) throw new Error(`No se pudo deshacer: ${error.message}`);
+    revalidatePath("/", "layout");
+    return;
+  }
 
   // Find exactly the movements that ticked it; balance adjustments are never touched.
   const base = supabase.from("transactions").select("id, category").gte("occurred_on", `${month}-01`).lte("occurred_on", last);
@@ -563,7 +575,23 @@ export async function adjustBalance(_prev: FormState, form: FormData): Promise<F
 }
 
 const goalsMissing = (message: string) =>
-  /relation .* does not exist|schema cache|could not find the table/i.test(message) ? "Falta ejecutar la migración 0006 en Supabase." : null;
+  /plan_amount|plan_day|plan_income_id|checklist_skips_item_type/i.test(message)
+    ? "Falta ejecutar la migración 0010 en Supabase."
+    : /relation .* does not exist|schema cache|could not find the table/i.test(message)
+      ? "Falta ejecutar la migración 0006 en Supabase."
+      : null;
+
+/** A savings goal's plan: what is set aside each month, on which day, from which income. Off unless «plan» is checked. */
+function goalPlan(form: FormData): { error: string } | { plan: { plan_amount: number | null; plan_day: number | null; plan_income_id: string | null } } {
+  if (form.get("plan") !== "on") return { plan: { plan_amount: null, plan_day: null, plan_income_id: null } };
+  const plan_amount = parsePesos(text(form, "plan_amount"));
+  if (!plan_amount) return { error: "Escribe cuánto vas a abonar cada mes." };
+  const plan_day = Number(text(form, "plan_day"));
+  if (!Number.isInteger(plan_day) || plan_day < 1 || plan_day > 31) return { error: "El día del abono debe estar entre 1 y 31." };
+  const plan_income_id = text(form, "plan_income_id") || null;
+  if (plan_income_id && !UUID.test(plan_income_id)) return { error: "Ese ingreso no es válido." };
+  return { plan: { plan_amount, plan_day, plan_income_id } };
+}
 
 export async function saveGoal(_prev: FormState, form: FormData): Promise<FormState> {
   const supabase = await signedIn();
@@ -578,7 +606,10 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
   if (kind === "save") {
     const target_amount = parsePesos(text(form, "target_amount"));
     if (!target_amount) return { error: "Escribe cuánto quieres juntar." };
-    row = { ...row, target_amount };
+    const plan = goalPlan(form);
+    if ("error" in plan) return plan;
+    // Only with a plan, so creating a goal keeps working before migration 0010 runs.
+    row = { ...row, target_amount, ...(plan.plan.plan_amount ? plan.plan : {}) };
   } else {
     const account_id = text(form, "account_id");
     const start_balance = Number(text(form, "start_balance"));
@@ -591,11 +622,44 @@ export async function saveGoal(_prev: FormState, form: FormData): Promise<FormSt
   return { message: "Meta creada." };
 }
 
+/** Edits a goal: its name, icon, date, amount (savings) and plan. A payoff goal keeps its debt. */
+export async function updateGoal(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const id = text(form, "id");
+  const { data: current } = await supabase.from("goals").select("kind").eq("id", id).maybeSingle();
+  if (!current) return { error: "Esa meta ya no existe." };
+  const name = text(form, "name");
+  if (!name) return { error: "Ponle un nombre a la meta." };
+  const target_date = text(form, "target_date");
+  if (!DATE.test(target_date)) return { error: "Elige la fecha límite." };
+  let row: Record<string, unknown> = { name, target_date, emoji: text(form, "emoji").slice(0, 8) || null };
+  if (current.kind === "save") {
+    const target_amount = parsePesos(text(form, "target_amount"));
+    if (!target_amount) return { error: "Escribe cuánto quieres juntar." };
+    const plan = goalPlan(form);
+    if ("error" in plan) return plan;
+    row = { ...row, target_amount, ...plan.plan };
+  }
+  const { error } = await supabase.from("goals").update(row).eq("id", id);
+  if (error) return { error: goalsMissing(error.message) ?? `No se pudo guardar: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { message: "Meta actualizada." };
+}
+
+export async function deleteDeposit(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("goal_deposits").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo borrar el abono: ${error.message}`);
+  revalidatePath("/", "layout");
+}
+
 export async function deleteGoal(form: FormData) {
   const supabase = await signedIn();
   const { error } = await supabase.from("goals").delete().eq("id", text(form, "id"));
   if (error) throw new Error(`No se pudo eliminar la meta: ${error.message}`);
   revalidatePath("/", "layout");
+  // Also when deleted from its own screen, which no longer exists.
+  redirect("/metas");
 }
 
 export async function addDeposit(_prev: FormState, form: FormData): Promise<FormState> {
@@ -615,7 +679,7 @@ export async function skipItem(_prev: FormState, form: FormData): Promise<FormSt
   const item_type = text(form, "type");
   const item_id = text(form, "id");
   const month = text(form, "month");
-  if (!["bill", "debt", "income"].includes(item_type) || !UUID.test(item_id) || !MONTH.test(month)) return { error: "No se pudo omitir." };
+  if (!["bill", "debt", "income", "goal"].includes(item_type) || !UUID.test(item_id) || !MONTH.test(month)) return { error: "No se pudo omitir." };
   const note = text(form, "note").slice(0, 200) || null;
   const { error } = await supabase.from("checklist_skips").upsert({ item_type, item_id, month, note }, { onConflict: "user_id,item_type,item_id,month" });
   if (error) return { error: missingTable(error.message, "0007") ?? `No se pudo omitir: ${error.message}` };

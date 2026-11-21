@@ -37,6 +37,8 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<"none" | "form" | "confirm" | "skip" | "unskip">("none");
   const income = item.type === "income";
+  // A goal's monthly saving: recorded as a deposit to the goal, no account involved.
+  const saving = item.type === "goal";
   const skipped = Boolean(item.skipped) && !paid;
   const [celebrate, setCelebrate] = useState(false);
   const [undoable, setUndoable] = useState(false);
@@ -133,7 +135,7 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
   }
 
   const days = item.due ? daysBetween(today, item.due) : null;
-  const doneWord = income ? "Recibido" : "Pagado";
+  const doneWord = income ? "Recibido" : saving ? "Ahorrado" : "Pagado";
   const status = paid
     ? celebrate
       ? `¡${doneWord}!`
@@ -244,12 +246,12 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
               <input type="hidden" name="type" value={item.type} />
               <input type="hidden" name="id" value={item.id} />
               <label className="field">
-                {income ? "Cuánto llegó" : "Cuánto pagaste"}
+                {income ? "Cuánto llegó" : saving ? "Cuánto abonas" : "Cuánto pagaste"}
                 <MoneyInput name="amount" defaultValue={item.expected} required autoFocus />
               </label>
-              <label className="field">
+              <label className="field" hidden={saving}>
                 {item.type === "bill" ? "Con qué" : income ? "Llegó a" : "Sale de"}
-                <select className="input" name="account_id" defaultValue={item.quick?.accountId ?? ""} required={item.type !== "debt"}>
+                <select className="input" name="account_id" defaultValue={item.quick?.accountId ?? ""} required={item.type !== "debt" && !saving}>
                   {item.type === "debt" && <option value="">Otra fuente (no registrada)</option>}
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -315,7 +317,7 @@ export function ChecklistRow({ item, month, today, editable, accounts }: Props) 
           {editable && panel === "confirm" && paid && (
             <div className="mt-3 flex flex-col gap-3 rounded-2xl bg-debt/10 p-3 sm:ml-14 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm">
-                ¿Desmarcar <span className="font-semibold">{item.name}</span>? Se borra {income ? "el ingreso" : "el pago"} de {formatCOP(item.paidAmount)} registrado este mes.
+                ¿Desmarcar <span className="font-semibold">{item.name}</span>? Se borra {income ? "el ingreso" : saving ? "el abono a la meta" : "el pago"} de {formatCOP(item.paidAmount)} registrado este mes.
               </p>
               <div className="flex shrink-0 gap-2">
                 <button type="button" className="btn-quiet" onClick={() => setPanel("none")}>

@@ -8,7 +8,10 @@ import { formatCOP } from "@/lib/finance";
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 const WEEKDAY_FULL = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-const TYPE_LABEL = { bill: "Pago fijo", debt: "Tarjeta o crédito", income: "Ingreso" } as const;
+const TYPE_LABEL = { bill: "Pago fijo", debt: "Tarjeta o préstamo", income: "Ingreso", goal: "Ahorro para una meta" } as const;
+
+/** Coral for what goes out, teal for what comes in, violet for what you set aside. */
+const TYPE_COLOR = { bill: "var(--debt)", debt: "var(--debt)", income: "var(--savings)", goal: "var(--brand)" } as const;
 
 const longDay = (date: string) => {
   const d = new Date(`${date}T12:00:00Z`);
@@ -28,7 +31,7 @@ function statusLabel(entry: CalendarEntry): { text: string; tone: string } {
 
 /** A dot per entry: coral for what goes out, teal for what comes in; hollow once settled. */
 function Dot({ entry }: { entry: CalendarEntry }) {
-  const color = entry.type === "income" ? "var(--savings)" : "var(--debt)";
+  const color = TYPE_COLOR[entry.type];
   const settled = entry.status === "paid" || entry.status === "skipped";
   return (
     <span
@@ -46,7 +49,7 @@ function EntryRow({ entry }: { entry: CalendarEntry }) {
       <span
         aria-hidden="true"
         className="mt-1.5 size-2.5 shrink-0 rounded-full"
-        style={{ background: entry.type === "income" ? "var(--savings)" : "var(--debt)" }}
+        style={{ background: TYPE_COLOR[entry.type] }}
       />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{entry.name}</span>
@@ -62,8 +65,8 @@ function EntryRow({ entry }: { entry: CalendarEntry }) {
   );
   return (
     <li>
-      {entry.type === "debt" ? (
-        <Link href={`/cuentas/${entry.id}`} className="-mx-2 flex items-start gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-line/40">
+      {entry.type === "debt" || entry.type === "goal" ? (
+        <Link href={entry.type === "goal" ? `/metas/${entry.id}` : `/cuentas/${entry.id}`} className="-mx-2 flex items-start gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-line/40">
           {body}
         </Link>
       ) : (
@@ -147,6 +150,9 @@ export function PaymentsCalendar({
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-[var(--savings)]" /> Ingresos
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-brand" /> Ahorro de metas
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full shadow-[inset_0_0_0_1.5px_var(--ink-3)]" /> Ya resuelto

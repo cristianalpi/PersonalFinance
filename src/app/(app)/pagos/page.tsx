@@ -5,7 +5,8 @@ import { ChecklistRow } from "@/components/checklist-row";
 import { MonthPlanCard } from "@/components/month-plan";
 import { incomeChecklist, incomeRow, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
-import { formatCOP, monthName, monthlyChecklist, shiftMonth } from "@/lib/finance";
+import { byDue, formatCOP, monthName, monthlyChecklist, shiftMonth } from "@/lib/finance";
+import { goalChecklist } from "@/lib/goals";
 import { SubmitButton } from "@/components/submit-button";
 import { PaymentsCalendar } from "@/components/payments-calendar";
 import { calendarEntries, calendarTotals, calendarWeeks } from "@/lib/calendar";
@@ -13,7 +14,7 @@ import { calendarEntries, calendarTotals, calendarWeeks } from "@/lib/calendar";
 const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
-  const { accounts, txs, bills, incomes, budgets, skips, planReady, today } = await loadData();
+  const { accounts, txs, bills, incomes, budgets, skips, planReady, goals, deposits, today } = await loadData();
   const current = today.slice(0, 7);
   const { mes: asked, vista } = await searchParams;
   const calendar = vista === "calendario";
@@ -31,7 +32,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const canGoNext = calendar ? month < shiftMonth(current, 12) : !editable;
   const hrefFor = (m: string, view = calendar) => `/pagos?${view ? "vista=calendario&" : ""}mes=${m}`;
 
-  const items = monthlyChecklist(accounts, bills, txs, month, today, skips);
+  // Bills, card and loan payments, and the monthly saving of goals with a plan.
+  const items = [...monthlyChecklist(accounts, bills, txs, month, today, skips), ...goalChecklist(goals, deposits, month, today, skips)].sort(byDue);
   const incomeItems = incomeChecklist(incomes, txs, month, today, skips);
 
   const header = (

@@ -10,7 +10,8 @@ import { Ring } from "@/components/ring";
 import { advise, type Advice } from "@/lib/advice";
 import { incomeChecklist, monthPlan } from "@/lib/budget";
 import { loadData } from "@/lib/data";
-import { balanceAt, daysBetween, formatCOP, isDebt, monthName, monthlyChecklist, monthlySeries, relativeDay, spendingByCategory, totals } from "@/lib/finance";
+import { balanceAt, byDue, daysBetween, formatCOP, isDebt, monthName, monthlyChecklist, monthlySeries, relativeDay, spendingByCategory, totals } from "@/lib/finance";
+import { goalChecklist } from "@/lib/goals";
 
 const LEVEL = { urgent: "Urgente", warn: "Atención", idea: "Idea" };
 // Phones swipe through the cards sideways; wider screens lay them out in two columns.
@@ -43,7 +44,7 @@ export default function Page(props: Props) {
 }
 
 async function Dashboard({ searchParams }: Props) {
-  const { accounts, txs, bills, inbox, incomes, budgets, skips, planReady, today } = await loadData();
+  const { accounts, txs, bills, inbox, incomes, budgets, skips, planReady, goals, deposits, today } = await loadData();
   const addNow = (await searchParams).nueva === "1";
 
   if (accounts.length === 0) {
@@ -72,7 +73,9 @@ async function Dashboard({ searchParams }: Props) {
   const debts = accounts.filter(isDebt);
 
   const month = today.slice(0, 7);
-  const checklist = monthlyChecklist(accounts, bills, txs, month, today, skips).filter((i) => !i.skipped);
+  const checklist = [...monthlyChecklist(accounts, bills, txs, month, today, skips), ...goalChecklist(goals, deposits, month, today, skips)]
+    .sort(byDue)
+    .filter((i) => !i.skipped);
   const paid = checklist.filter((i) => i.paid).length;
   // What is still to pay this month, soonest first.
   const upcoming = checklist.filter((i) => !i.paid).slice(0, 4);

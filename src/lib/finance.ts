@@ -53,7 +53,7 @@ export interface Tx {
 /** «Este mes no aplica» for a bill, a debt instalment or an income. */
 export interface Skip {
   id: string;
-  item_type: "bill" | "debt" | "income";
+  item_type: "bill" | "debt" | "income" | "goal";
   item_id: string;
   month: string;
   note: string | null;
@@ -334,7 +334,7 @@ export function relativeDay(days: number): string {
 
 export interface ChecklistItem {
   /** «income» rows come from incomeChecklist: «paid» then means received. */
-  type: "bill" | "debt" | "income";
+  type: "bill" | "debt" | "income" | "goal";
   id: string;
   name: string;
   /** Due date inside the month, or null for a debt with no payment day. */
@@ -355,6 +355,9 @@ export interface ChecklistItem {
  * that owes something. Nothing is stored per month: an item is ticked when a
  * movement dated in that month pays it, so each new month starts unticked.
  */
+/** Soonest first; items with no payment day last; then by name. */
+export const byDue = (a: ChecklistItem, b: ChecklistItem) => (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name);
+
 export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], month: string, today: string, skips: Skip[] = []): ChecklistItem[] {
   const skipOf = (type: Skip["item_type"], id: string) => skips.find((s) => s.item_type === type && s.item_id === id && s.month === month) ?? null;
   const first = `${month}-01`;
@@ -410,7 +413,7 @@ export function monthlyChecklist(accounts: Account[], bills: Bill[], txs: Tx[], 
   }
 
   // By due date, paid or not: a ticked row stays where the person tapped it instead of jumping away.
-  return items.sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999") || a.name.localeCompare(b.name));
+  return items.sort(byDue);
 }
 
 /** 'YYYY-MM' shifted by a number of months. */
