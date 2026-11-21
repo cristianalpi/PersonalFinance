@@ -1,14 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ADVISOR_SYSTEM, advisorContext } from "@/lib/advisor-context";
+import { GEMINI_MODEL, aiProvider, geminiRequest, geminiText, type ChatTurn } from "@/lib/ai-provider";
 import { loadData } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+type ChatMessage = ChatTurn;
 
 const MAX_TURNS = 30;
 const MAX_CHARS = 4000;
@@ -16,10 +14,12 @@ const MAX_CHARS = 4000;
 /**
  * One turn of the advisor chat. The conversation lives in the browser; each
  * question rebuilds the snapshot of the person's finances from the database
- * (with their session, so Row Level Security applies) and sends it to Claude.
+ * (with their session, so Row Level Security applies) and sends it to Gemini
+ * or Claude, whichever has a key.
  */
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) return Response.json({ error: "El asesor no está configurado." }, { status: 503 });
+  const provider = aiProvider();
+  if (!provider) return Response.json({ error: "El asesor no está configurado." }, { status: 503 });
 
   const supabase = await createClient();
   const {
@@ -42,15 +42,36 @@ export async function POST(request: Request) {
   if (!valid) return Response.json({ error: "Mensaje no válido." }, { status: 400 });
 
   const data = await loadData();
+  const system = [ADVISOR_SYSTEM, advisorContext(data)];
+  const fallback = "No pude armar una respuesta. Intenta preguntarlo de otra forma.";
+
+  if (provider === "gemini") {
+    const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL()}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
+      body: JSON.stringify(geminiRequest(system, messages, 6000)),
+    }).catch(() => null);
+    if (!upstream?.ok) {
+      const status = upstream?.status ?? 500;
+      const message =
+        status === 400 || status === 403
+          ? "La clave de Gemini no es válida o el modelo no está disponible."
+          : status === 404
+            ? "Ese modelo de Gemini ya no existe; cambia GUACA_GEMINI_MODEL."
+            : status === 429
+              ? "Llegaste al límite gratis de Gemini por ahora; espera un momento."
+              : "El asesor no respondió. Intenta de nuevo.";
+      return Response.json({ error: message }, { status: 502 });
+    }
+    return Response.json({ text: geminiText(await upstream.json()) || fallback });
+  }
+
   const client = new Anthropic();
   try {
     const response = await client.messages.create({
       model: process.env.GUACA_AI_MODEL || "claude-sonnet-5-5",
       max_tokens: 6000,
-      system: [
-        { type: "text", text: ADVISOR_SYSTEM },
-        { type: "text", text: advisorContext(data) },
-      ],
+      system: system.map((text) => ({ type: "text" as const, text })),
       messages,
     });
     const text = response.content
@@ -58,7 +79,7 @@ export async function POST(request: Request) {
       .map((block) => block.text)
       .join("\n")
       .trim();
-    return Response.json({ text: text || "No pude armar una respuesta. Intenta preguntarlo de otra forma." });
+    return Response.json({ text: text || fallback });
   } catch (error) {
     const status = error instanceof Anthropic.APIError ? error.status : 500;
     const message = status === 401 ? "La clave de la API no es válida." : status === 429 ? "Demasiadas preguntas seguidas; espera un momento." : "El asesor no respondió. Intenta de nuevo.";
