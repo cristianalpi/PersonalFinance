@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AccountHero } from "@/components/account-editor";
 import { BalanceChart } from "@/components/balance-chart";
-import { OpenEditorFromHash } from "./open-editor";
 import { TxList } from "@/components/tx-list";
 import { loadData } from "@/lib/data";
 import { CardPurchases } from "@/components/card-purchases";
@@ -125,7 +124,6 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         </dl>
       </section>
 
-      <OpenEditorFromHash />
 
       <h2 className="display text-2xl">Movimientos de esta cuenta</h2>
       <TxList txs={own} accounts={accounts.map(({ id, name, kind }) => ({ id, name, kind }))} today={today} />

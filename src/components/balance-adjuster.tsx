@@ -10,9 +10,9 @@ import { SubmitButton } from "./submit-button";
  * "Actualizar saldo": the person types what the bank shows today and the
  * difference is recorded as a movement, so history and balance stay in step.
  */
-export function BalanceAdjuster({ id, current, debt, today }: { id: string; current: number; debt: boolean; today: string }) {
+export function BalanceAdjuster({ id, current, debt, today, defaultOpen = false }: { id: string; current: number; debt: boolean; today: string; defaultOpen?: boolean }) {
   const [state, action] = useActionState<FormState, FormData>(adjustBalance, {});
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div id="saldo" className="scroll-mt-4">

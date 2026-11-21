@@ -103,7 +103,7 @@ function DebtModule({
               href={`/cuentas/${account.id}#editar`}
               className="font-medium text-brand"
             >
-              editar cuenta
+              Datos
             </Link>{" "}
             para ver el porcentaje de uso.
           </p>
