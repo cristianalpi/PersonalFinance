@@ -110,3 +110,27 @@ export function ListSkeleton({ text, rows = 6 }: { text: string; rows?: number }
     </div>
   );
 }
+
+/** An account's own screen: its card, the trend chart and the facts. */
+export function AccountSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true">
+      <LoadingMark text="Abriendo la cuenta…" />
+      <Bar className="aspect-[1.586] w-full max-w-md rounded-3xl" />
+      <Tile>
+        <Bar className="h-6 w-48" />
+        <Bar className="h-48 w-full" />
+      </Tile>
+      <Tile>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Bar className="h-3 w-24" />
+              <Bar className="h-4 w-40" />
+            </div>
+          ))}
+        </div>
+      </Tile>
+    </div>
+  );
+}

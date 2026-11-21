@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
+import { FormSplash } from "@/components/splash";
+import { SubmitButton } from "@/components/submit-button";
 import { updatePassword, type FormState } from "../actions";
 
 export function NewPasswordForm() {
-  const [state, action, pending] = useActionState<FormState, FormData>(updatePassword, {});
+  const [state, action] = useActionState<FormState, FormData>(updatePassword, {});
   return (
     <form action={action} className="card flex flex-col gap-4">
       <label className="field">
@@ -16,9 +18,8 @@ export function NewPasswordForm() {
         <input className="input" type="password" name="repeat" autoComplete="new-password" minLength={6} required />
       </label>
       {state.error && <p role="alert" className="alert">{state.error}</p>}
-      <button className="btn" disabled={pending}>
-        Guardar y entrar
-      </button>
+      <SubmitButton className="btn">Guardar y entrar</SubmitButton>
+      <FormSplash text="Guardando tu contraseña…" />
     </form>
   );
 }

@@ -1,6 +1,7 @@
 // What the Debts tab shows for each card and loan. Pure, so it is tested.
 import { monthlyRate, monthsToPayOff } from "./advice.ts";
 import { balanceAt, daysBetween, monthLabel, nextDueDate, shiftMonth, type Account, type Tx } from "./finance.ts";
+import { scheduleView, type ScheduleView } from "./installments.ts";
 
 export interface DebtView {
   account: Account;
@@ -19,6 +20,8 @@ export interface DebtView {
   monthlyInterest: number | null;
   nextDue: string | null;
   daysToDue: number | null;
+  /** Loans with a term: "cuota 14 de 36". When present, months left and the end follow it. */
+  schedule: ScheduleView | null;
 }
 
 export type UsageLevel = "low" | "mid" | "high";
@@ -37,6 +40,7 @@ export function debtView(account: Account, txs: Tx[], today: string): DebtView {
   const months =
     isLoan && account.monthly_payment && account.annual_rate !== null ? monthsToPayOff(owed, account.monthly_payment, account.annual_rate) : null;
   const nextDue = account.due_day && owed > 0 ? nextDueDate(account.due_day, today) : null;
+  const schedule = isLoan && account.term_months && account.first_due_month ? scheduleView(account.first_due_month, account.term_months, account.due_day ?? null, today) : null;
 
   return {
     account,
@@ -46,11 +50,12 @@ export function debtView(account: Account, txs: Tx[], today: string): DebtView {
     paidShare: base ? (base - owed) / base : null,
     base,
     baseIsOriginal: isLoan && account.original_amount != null,
-    monthsLeft: months,
-    endsIn: months ? monthLabel(shiftMonth(today.slice(0, 7), months)) : null,
+    monthsLeft: schedule ? schedule.left : months,
+    endsIn: schedule ? (schedule.done ? null : monthLabel(schedule.endsMonth)) : months ? monthLabel(shiftMonth(today.slice(0, 7), months)) : null,
     monthlyInterest: account.annual_rate !== null && owed > 0 ? Math.round(owed * monthlyRate(account.annual_rate)) : null,
     nextDue,
     daysToDue: nextDue ? daysBetween(today, nextDue) : null,
+    schedule,
   };
 }
 

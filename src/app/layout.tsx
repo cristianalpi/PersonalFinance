@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import "@fontsource-variable/outfit";
 import "@fontsource-variable/plus-jakarta-sans";
+import { TouchFeedback } from "@/components/splash";
 import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import { SCALE_COOKIE, THEME_COOKIE, parseScale, parseTheme } from "@/lib/theme";
 import "./globals.css";
@@ -30,7 +31,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const scale = parseScale(jar.get(SCALE_COOKIE)?.value);
   return (
     <html lang="es-CO" className="h-full antialiased" data-theme={theme === "system" ? undefined : theme} data-scale={scale === "std" ? undefined : scale}>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        <TouchFeedback />
+        {children}
+      </body>
     </html>
   );
 }

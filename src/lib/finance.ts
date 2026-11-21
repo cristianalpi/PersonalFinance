@@ -24,6 +24,15 @@ export interface Account {
   logo?: string | null;
   /** Loans: the amount originally borrowed, to measure how much is left. */
   original_amount?: number | null;
+  /** Loans: how many instalments in total (the new term, if refinanced). */
+  term_months?: number | null;
+  /** Loans: 'YYYY-MM' of the first instalment; with the term it gives "cuota 14 de 36". */
+  first_due_month?: string | null;
+  /** Debts: fixed or variable rate, and what a variable one follows (IBR + 6, UVR + 7…). */
+  rate_type?: "fixed" | "variable" | null;
+  rate_reference?: string | null;
+  /** Debts: the bank stretched the term ("rediferido"). */
+  refinanced?: boolean;
 }
 
 export interface Tx {

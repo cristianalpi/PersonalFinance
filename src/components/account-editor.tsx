@@ -4,7 +4,9 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { deleteAccount, updateAccount, type FormState } from "@/app/actions";
 import { CARD_COLORS, bankColor, bankKey, cardColor } from "@/lib/banks";
 import type { Account } from "@/lib/finance";
+import { installmentsPaid } from "@/lib/installments";
 import { AccountCard } from "./account-card";
+import { CreditDetailFields } from "./credit-detail-fields";
 import { BalanceAdjuster } from "./balance-adjuster";
 import { Icon } from "./icons";
 import { MoneyInput } from "./money-input";
@@ -50,7 +52,7 @@ export function AccountHero({
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   const [round, setRound] = useState(0);
-  const [state, action, pending] = useActionState<FormState, FormData>(
+  const [state, action] = useActionState<FormState, FormData>(
     async (prev: FormState, form: FormData) => {
       const result = await updateAccount(prev, form);
       if (!result.error) {
@@ -120,11 +122,19 @@ export function AccountHero({
     }
   }
 
-  // Links ending in #editar open straight into editing.
+  // Links ending in #editar open straight into editing, also from a link on this same screen.
   useEffect(() => {
-    if (window.location.hash !== "#editar") return;
-    const id = requestAnimationFrame(() => setEditing(true));
-    return () => cancelAnimationFrame(id);
+    let frame = 0;
+    const open = () => {
+      if (window.location.hash !== "#editar") return;
+      frame = requestAnimationFrame(() => setEditing(true));
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", open);
+    };
   }, []);
 
   // While editing, pasting an image anywhere uses it as the card's image.
@@ -409,6 +419,21 @@ export function AccountHero({
               )}
             </div>
 
+            {(isCard || isLoan) && (
+              <CreditDetailFields
+                kind={isCard ? "credit_card" : "loan"}
+                termMonths={account.term_months}
+                paid={
+                  account.term_months && account.first_due_month
+                    ? installmentsPaid(account.first_due_month, account.term_months, account.due_day, today)
+                    : null
+                }
+                rateType={account.rate_type}
+                rateReference={account.rate_reference}
+                refinanced={account.refinanced}
+              />
+            )}
+
             {state.error && (
               <p role="alert" className="alert">
                 {state.error}
@@ -418,9 +443,7 @@ export function AccountHero({
               <button type="button" className="btn-quiet h-11" onClick={cancel}>
                 Cancelar
               </button>
-              <button className="btn h-11" disabled={pending}>
-                {pending ? "Guardando…" : "Guardar cambios"}
-              </button>
+              <SubmitButton className="btn h-11">Guardar cambios</SubmitButton>
             </div>
           </form>
 

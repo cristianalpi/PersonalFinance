@@ -164,6 +164,28 @@ test("incomes: months must be real months; a received income must be one's own",
   await assert.rejects(as(ANA, "insert into transactions (account_id, kind, amount, income_id) values ($1, 'income', 1, $2)", [cash.id, beto.id]), /row-level security/);
 });
 
+test("credit detail: term, first month, rate type and refinanced are validated", async () => {
+  const [loan] = await as(ANA, "insert into accounts (kind, name, opening_balance) values ('loan', 'Vehículo', 30000000) returning id");
+  await as(ANA, "update accounts set term_months = 60, first_due_month = '2025-03', rate_type = 'variable', rate_reference = 'IBR + 6', refinanced = true where id = $1", [loan.id]);
+  const [row] = await as(ANA, "select term_months, first_due_month, rate_type, refinanced from accounts where id = $1", [loan.id]);
+  assert.deepEqual([row.term_months, row.first_due_month, row.rate_type, row.refinanced], [60, "2025-03", "variable", true]);
+  const bad = (sql) => assert.rejects(as(ANA, sql, [loan.id]), /check constraint/);
+  await bad("update accounts set term_months = 0 where id = $1");
+  await bad("update accounts set first_due_month = '2025-13' where id = $1");
+  await bad("update accounts set rate_type = 'mixta' where id = $1");
+});
+
+test("card purchases: only on one's own credit cards", async () => {
+  const insert = (user, account) =>
+    as(user, "insert into card_purchases (account_id, description, amount, installments, first_due_month) values ($1, 'Televisor', 2400000, 12, '2026-09') returning id", [account]);
+  await insert(ANA, visa.id);
+  await assert.rejects(insert(ANA, betoCard.id), /row-level security/, "someone else's card");
+  const [savings] = await as(ANA, "insert into accounts (kind, name) values ('savings', 'Nómina') returning id");
+  await assert.rejects(insert(ANA, savings.id), /row-level security/, "only credit cards have purchases in instalments");
+  await assert.rejects(as(ANA, "insert into card_purchases (account_id, description, amount, installments, first_due_month) values ($1, 'X', 1, 0, '2026-09')", [visa.id]), /check constraint/);
+  assert.equal((await as(BETO, "select * from card_purchases")).length, 0);
+});
+
 test("incomes: a one-time income has one month, never a yearly pattern too", async () => {
   await as(ANA, "insert into incomes (name, amount, day, once_month) values ('Horas extra', 450000, 30, '2026-12')");
   await assert.rejects(as(ANA, "insert into incomes (name, day, once_month) values ('X', 1, '2026-13')"), /check constraint/);

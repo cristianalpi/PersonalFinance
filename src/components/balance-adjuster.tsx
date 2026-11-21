@@ -4,13 +4,14 @@ import { useActionState, useState } from "react";
 import { adjustBalance, type FormState } from "@/app/actions";
 import { formatCOP } from "@/lib/finance";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 
 /**
  * "Actualizar saldo": the person types what the bank shows today and the
  * difference is recorded as a movement, so history and balance stay in step.
  */
 export function BalanceAdjuster({ id, current, debt, today }: { id: string; current: number; debt: boolean; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(adjustBalance, {});
+  const [state, action] = useActionState<FormState, FormData>(adjustBalance, {});
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,9 +40,7 @@ export function BalanceAdjuster({ id, current, debt, today }: { id: string; curr
               <button type="button" className="btn-quiet h-11" onClick={() => setOpen(false)}>
                 Cancelar
               </button>
-              <button className="btn h-11" disabled={pending}>
-                Guardar
-              </button>
+              <SubmitButton className="btn h-11">Guardar</SubmitButton>
             </div>
           </div>
           {state.error && <p role="alert" className="alert">{state.error}</p>}

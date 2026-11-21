@@ -22,6 +22,7 @@ import {
   monthlyChecklist,
 } from "./finance.ts";
 import { goalView, type Goal, type GoalDeposit } from "./goals.ts";
+import { purchaseView, type CardPurchase } from "./installments.ts";
 import { planDebts, simulate } from "./planner.ts";
 
 interface Snapshot {
@@ -33,6 +34,7 @@ interface Snapshot {
   incomes?: Income[];
   budgets?: Budget[];
   skips?: Skip[];
+  purchases?: CardPurchase[];
   today: string;
 }
 
@@ -40,7 +42,7 @@ const month = (today: string, n: number | null) => (n === null ? "nunca con los 
 
 const MONTH_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-export function advisorContext({ accounts, txs, bills, goals, deposits, incomes = [], budgets = [], skips = [], today }: Snapshot): string {
+export function advisorContext({ accounts, txs, bills, goals, deposits, incomes = [], budgets = [], skips = [], purchases = [], today }: Snapshot): string {
   const lines: string[] = [];
   const t = totals(accounts, txs);
   lines.push(`Fecha de hoy: ${today} (Colombia). Montos en pesos colombianos.`);
@@ -59,9 +61,22 @@ export function advisorContext({ accounts, txs, bills, goals, deposits, incomes 
       a.credit_limit ? `cupo ${formatCOP(a.credit_limit)} (${Math.round((v.usage ?? 0) * 100)}% usado)` : null,
       a.due_day ? `paga el día ${a.due_day}` : null,
       v.monthlyInterest ? `intereses aprox. ${formatCOP(v.monthlyInterest)}/mes` : null,
-      v.monthsLeft ? `al ritmo actual termina en ${v.endsIn}` : null,
+      v.schedule
+        ? `cuota ${Math.min(v.schedule.paid + 1, v.schedule.total)} de ${v.schedule.total} (faltan ${v.schedule.left}, la última en ${monthLabel(v.schedule.endsMonth)})`
+        : v.monthsLeft
+          ? `al ritmo actual termina en ${v.endsIn}`
+          : null,
+      a.rate_type ? (a.rate_type === "variable" ? `tasa variable${a.rate_reference ? ` (${a.rate_reference})` : ""}: la cuota puede cambiar` : "tasa fija") : null,
+      a.refinanced ? "rediferido (el banco amplió el plazo)" : null,
     ].filter(Boolean);
     lines.push(`- ${a.name} (${KIND_LABEL[a.kind]}${a.institution ? `, ${a.institution}` : ""}): ${parts.join("; ")}`);
+    if (a.kind === "credit_card") {
+      for (const p of purchases.filter((x) => x.account_id === a.id).map((x) => purchaseView(x, a.due_day, today)).filter((x) => !x.done)) {
+        lines.push(
+          `  - Compra a cuotas «${p.purchase.description}»: ${formatCOP(p.purchase.amount)} a ${p.total} cuotas; va en la ${p.paid + 1} (faltan ${p.left}); cuota ${p.paymentIsEstimate ? "aprox. " : ""}${formatCOP(p.payment)}; capital pendiente aprox. ${formatCOP(p.remaining)}${p.purchase.refinanced ? "; rediferida" : ""}`,
+        );
+      }
+    }
   }
 
   const plan = planDebts(accounts, txs);

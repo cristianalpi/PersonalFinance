@@ -7,6 +7,8 @@ import { PlanSimulator } from "@/components/plan-simulator";
 import { planDebts } from "@/lib/planner";
 import { LinkPending } from "@/components/link-pending";
 import { UsageBar } from "@/components/usage-bar";
+import { DebtTags, InstallmentMeter } from "@/components/installment-meter";
+import { purchaseView, purchasesSummary } from "@/lib/installments";
 import { cardColor } from "@/lib/banks";
 import { loadData } from "@/lib/data";
 import { debtView, payFirst, type DebtView } from "@/lib/debts";
@@ -29,10 +31,13 @@ function DebtModule({
   view,
   first,
   index,
+  installments,
 }: {
   view: DebtView;
   first: boolean;
   index: number;
+  /** Cards: their purchases in instalments still running. */
+  installments?: ReturnType<typeof purchasesSummary>;
 }) {
   const { account } = view;
   const owed = Math.max(0, view.balance);
@@ -73,6 +78,12 @@ function DebtModule({
         </p>
       )}
 
+      <DebtTags
+        rateType={account.rate_type}
+        rateReference={account.rate_reference}
+        refinanced={account.refinanced}
+      />
+
       {account.kind === "credit_card" &&
         (view.usage !== null ? (
           <div>
@@ -97,6 +108,30 @@ function DebtModule({
             para ver el porcentaje de uso.
           </p>
         ))}
+
+      {account.kind === "credit_card" && installments && installments.active > 0 && (
+        <Link
+          href={`/cuentas/${account.id}#compras`}
+          className="flex items-center justify-between gap-3 rounded-2xl border border-line px-3.5 py-2.5 text-sm transition-colors hover:border-brand"
+        >
+          <span>
+            <span className="font-semibold">
+              {installments.active} {installments.active === 1 ? "compra" : "compras"} a cuotas
+            </span>
+            <span className="block text-xs text-ink-3">
+              {formatCOP(installments.remaining)} de capital por pagar, aprox.
+            </span>
+          </span>
+          <span className="num shrink-0 font-semibold">
+            {formatCOP(installments.monthly)}
+            <span className="block text-right text-xs font-normal text-ink-3">al mes</span>
+          </span>
+        </Link>
+      )}
+
+      {account.kind === "loan" && view.schedule && (
+        <InstallmentMeter paid={view.schedule.paid} total={view.schedule.total} />
+      )}
 
       {account.kind === "loan" && view.paidShare !== null && (
         <div>
@@ -156,10 +191,10 @@ function DebtModule({
             }
           />
         )}
-        {account.kind === "loan" && view.monthsLeft !== null && (
+        {account.kind === "loan" && view.monthsLeft !== null && view.endsIn && (
           <Fact
-            label="Terminas"
-            value={`${view.endsIn} (${view.monthsLeft} cuotas)`}
+            label={view.schedule ? "Última cuota" : "Terminas, aprox."}
+            value={`${view.endsIn} (${view.monthsLeft} ${view.monthsLeft === 1 ? "cuota" : "cuotas"})`}
           />
         )}
         <Fact
@@ -186,7 +221,13 @@ export default async function DebtsPage({
 }: {
   searchParams: Promise<{ nueva?: string }>;
 }) {
-  const { accounts, txs, today } = await loadData();
+  const { accounts, txs, today, purchases } = await loadData();
+  const installmentsOf = (account: DebtView["account"]) =>
+    purchasesSummary(
+      purchases
+        .filter((p) => p.account_id === account.id)
+        .map((p) => purchaseView(p, account.due_day, today)),
+    );
   const addNow = (await searchParams).nueva === "1";
   const planned = planDebts(accounts, txs);
   const colors = Object.fromEntries(accounts.map((a) => [a.id, cardColor(a)]));
@@ -317,6 +358,7 @@ export default async function DebtsPage({
                   view={v}
                   first={v.account.id === first}
                   index={i}
+                  installments={installmentsOf(v.account)}
                 />
               ))}
               <li className={`flex min-h-40 ${DEBT_SLIDE}`}>

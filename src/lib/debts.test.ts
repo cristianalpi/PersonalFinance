@@ -102,3 +102,10 @@ test("banks: Davibank and the Rappi cards get their own logos", async () => {
   assert.equal(bankKey("RappiPay"), "rappi");
   assert.deepEqual(bankDomains("davibank"), ["davibank.com.co", "davibank.com", "davivienda.com"]);
 });
+
+test("loan with a term: instalments follow the schedule, not the balance estimate", () => {
+  const loan = acc({ id: "carro", kind: "loan", opening_balance: 20_000_000, monthly_payment: 900_000, annual_rate: 18, due_day: 10, term_months: 36, first_due_month: "2026-01" });
+  const v = debtView(loan, [], "2026-11-21");
+  assert.deepEqual([v.schedule?.paid, v.schedule?.left, v.monthsLeft, v.endsIn], [11, 25, 25, "dic 28"]);
+  assert.equal(debtView(acc({ id: "x", kind: "loan", opening_balance: 1 }), [], "2026-11-21").schedule, null, "without a term there is no schedule");
+});

@@ -8,7 +8,7 @@ import { MoneyInput } from "./money-input";
 import { SubmitButton } from "./submit-button";
 
 export function InboxItem({ item, accounts }: { item: Item; accounts: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(resolveInbox, {});
+  const [state, action] = useActionState<FormState, FormData>(resolveInbox, {});
   return (
     <li className="flex flex-col gap-3 py-4">
       <p className="text-sm text-ink-2">
@@ -38,9 +38,7 @@ export function InboxItem({ item, accounts }: { item: Item; accounts: { id: stri
           Categoría
           <input className="input" name="category" list="categorias" />
         </label>
-        <button className="btn" disabled={pending}>
-          Registrar
-        </button>
+        <SubmitButton className="btn">Registrar</SubmitButton>
         {item.card && (
           <label className="flex items-center gap-2 text-sm text-ink-2 sm:col-span-4">
             <input type="checkbox" name="remember" defaultChecked />

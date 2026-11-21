@@ -4,7 +4,9 @@ import { useActionState, useEffect, useState } from "react";
 import { saveAccount, type FormState } from "@/app/actions";
 import { isDebt, type AccountKind } from "@/lib/finance";
 import { Icon, KIND_ICON } from "./icons";
+import { CreditDetailFields } from "./credit-detail-fields";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 
 const KINDS: { kind: AccountKind; tone: string; label: string; hint: string }[] = [
   { kind: "savings", tone: "tone-have", label: "Cuenta bancaria", hint: "Ahorros, nómina o débito" },
@@ -25,7 +27,7 @@ const PLACEHOLDER: Record<AccountKind, string> = {
  * the modal once the account is stored.
  */
 export function AccountForm({ today, onSaved, initialKind = "savings" }: { today: string; onSaved?: () => void; initialKind?: AccountKind }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveAccount, {});
+  const [state, action] = useActionState<FormState, FormData>(saveAccount, {});
   const [kind, setKind] = useState<AccountKind>(initialKind);
   const debt = isDebt({ kind });
 
@@ -117,10 +119,9 @@ export function AccountForm({ today, onSaved, initialKind = "savings" }: { today
           </>
         )}
       </div>
+      {(kind === "credit_card" || kind === "loan") && <CreditDetailFields key={kind} kind={kind} />}
       {state.error && <p role="alert" className="alert">{state.error}</p>}
-      <button className="btn h-12 text-base" disabled={pending}>
-        {pending ? "Guardando…" : "Agregar cuenta"}
-      </button>
+      <SubmitButton className="btn h-12 text-base">Agregar cuenta</SubmitButton>
     </form>
   );
 }

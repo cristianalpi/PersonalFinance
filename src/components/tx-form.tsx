@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveTx, type FormState } from "@/app/actions";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 import {
   allowedTxKinds,
   type Account,
@@ -33,7 +34,7 @@ export function TxForm({
   tx?: Tx;
   onDone?: (message: string) => void;
 }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(
+  const [state, action] = useActionState<FormState, FormData>(
     async (prev: FormState, form: FormData) => {
       const result = await saveTx(prev, form);
       if (!result.error) onDone?.(result.message ?? "Guardado.");
@@ -177,9 +178,7 @@ export function TxForm({
               {state.message}
             </p>
           )}
-          <button className="btn self-start" disabled={pending}>
-            {pending ? "Guardando…" : editing ? "Guardar cambios" : "Registrar"}
-          </button>
+          <SubmitButton className="btn self-start">{editing ? "Guardar cambios" : "Registrar"}</SubmitButton>
         </>
       )}
     </form>

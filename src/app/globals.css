@@ -585,6 +585,14 @@ body {
   .month-chip:has(input:checked) {
     @apply border-transparent bg-brand text-white;
   }
+  /* A checkbox with its explanation next to it; the whole row is the tap target. */
+  .check-row {
+    @apply flex cursor-pointer items-start gap-3 rounded-xl text-sm select-none;
+  }
+  .check-row > input {
+    accent-color: var(--brand);
+    @apply mt-0.5 size-5 shrink-0;
+  }
   .month-chip:has(input:focus-visible) {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
@@ -749,24 +757,93 @@ body {
     transform: translateX(300%);
   }
 }
-/* Every button and tappable card gives under the finger. */
+/* Taps answer at once: no wait for a possible double-tap zoom and no grey flash over what was touched. */
+button,
+a,
+label,
+summary,
+select,
+[role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Every button and tappable card gives under the finger: fast going in, softer coming back. */
 .btn,
 .btn-quiet,
 .chip,
+.month-chip,
+.check-row,
 a.card,
 button.liquid,
 a.liquid {
   transition-property: transform, background-color, border-color, color, opacity, box-shadow;
+  transition-duration: 160ms;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .btn:active:not(:disabled),
 .btn-quiet:active:not(:disabled),
 .chip:active,
 button.liquid:active,
 a.liquid:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
+  transition-duration: 50ms;
 }
+.month-chip:active,
+.check-row:active,
 a.card:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
+  transition-duration: 50ms;
+}
+/* A button that is sending stays solid (not faded like a disabled one) so it reads as working. */
+.btn[aria-busy="true"],
+.btn-quiet[aria-busy="true"] {
+  opacity: 1;
+  cursor: progress;
+}
+
+/* Splash for the big jumps: signing in, signing out, a new password. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--aurora), var(--bg);
+  animation: splash-in 0.22s ease-out both;
+}
+.splash-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 5.5rem;
+  height: 5.5rem;
+  padding: 0 1rem;
+  border-radius: 1.6rem;
+  background: linear-gradient(135deg, #6d4aff, #9a34e6);
+  box-shadow: 0 24px 60px -20px var(--brand);
+  animation: splash-pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+}
+@keyframes splash-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes splash-pop {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash,
+  .splash-mark {
+    animation: none;
+  }
 }
 .spinner {
   display: inline-block;

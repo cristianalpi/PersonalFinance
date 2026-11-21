@@ -6,6 +6,7 @@ import { formatCOP } from "@/lib/finance";
 import { useCloseModal } from "./modal";
 import { Icon } from "./icons";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 
 const EMOJIS = ["🎯", "🛋️", "📱", "✈️", "🏍️", "🚗", "🏠", "🎓", "🎁", "💍", "🐶", "🛟"];
 
@@ -17,7 +18,7 @@ export interface DebtOption {
 
 /** New goal: save for something, or clear a debt, by a date. */
 export function GoalForm({ debts, today }: { debts: DebtOption[]; today: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveGoal, {});
+  const [state, action] = useActionState<FormState, FormData>(saveGoal, {});
   const close = useCloseModal();
   const [kind, setKind] = useState<"save" | "payoff">("save");
   const [emoji, setEmoji] = useState("🎯");
@@ -119,9 +120,7 @@ export function GoalForm({ debts, today }: { debts: DebtOption[]; today: string 
       )}
 
       {state.error && <p role="alert" className="alert">{state.error}</p>}
-      <button className="btn h-12 text-base" disabled={pending}>
-        {pending ? "Guardando…" : "Crear meta"}
-      </button>
+      <SubmitButton className="btn h-12 text-base">{"Crear meta"}</SubmitButton>
     </form>
   );
 }

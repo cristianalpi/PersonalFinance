@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { passwordProblem } from "@/lib/auth-links";
 import { ADJUSTMENT, allowedTxKinds, balanceAt, isDebt, parsePesos, todayInBogota, type Account, type AccountKind, type Tx, type TxKind } from "@/lib/finance";
+import { firstMonthFor } from "@/lib/installments";
 import { requestOrigin } from "@/lib/request-origin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
@@ -101,6 +102,46 @@ function optionalDay(form: FormData, name: string): number | null | "invalid" {
   return Number.isInteger(day) && day >= 1 && day <= 31 ? day : "invalid";
 }
 
+const DETAIL_COLUMNS = /term_months|first_due_month|rate_type|rate_reference|refinanced|card_purchases/;
+
+/** The message for a failed account write, naming the migration that is missing if that is the cause. */
+function accountWriteError(message: string): string {
+  if (/column .* does not exist|schema cache|could not find/i.test(message)) {
+    return `Falta ejecutar la migración ${DETAIL_COLUMNS.test(message) ? "0009" : "0004"} en Supabase.`;
+  }
+  return `No se pudo guardar: ${message}`;
+}
+
+/**
+ * The detail of a debt: rate type (and what a variable rate follows), whether it was refinanced
+ * and, for loans, the term in instalments. "Cuotas ya pagadas" becomes the month of the first one.
+ */
+function creditDetail(form: FormData, kind: AccountKind, dueDay: number | null): { error: string } | { detail: Record<string, string | number | boolean | null> } {
+  if (!isDebt({ kind })) return { detail: {} };
+  const rateType = text(form, "rate_type");
+  if (rateType && rateType !== "fixed" && rateType !== "variable") return { error: "El tipo de tasa no es válido." };
+  const detail: Record<string, string | number | boolean | null> = {
+    rate_type: rateType || null,
+    rate_reference: rateType === "variable" ? text(form, "rate_reference").slice(0, 60) || null : null,
+    refinanced: form.get("refinanced") === "on",
+  };
+  if (kind === "loan") {
+    const termRaw = text(form, "term_months");
+    if (!termRaw) {
+      detail.term_months = null;
+      detail.first_due_month = null;
+    } else {
+      const term = Number(termRaw);
+      const paid = Number(text(form, "installments_paid") || "0");
+      if (!Number.isInteger(term) || term < 1 || term > 600) return { error: "El plazo debe ser un número de cuotas entre 1 y 600." };
+      if (!Number.isInteger(paid) || paid < 0 || paid > term) return { error: "Las cuotas pagadas deben estar entre 0 y el plazo total." };
+      detail.term_months = term;
+      detail.first_due_month = firstMonthFor(paid, dueDay, todayInBogota());
+    }
+  }
+  return { detail };
+}
+
 export async function saveAccount(_prev: FormState, form: FormData): Promise<FormState> {
   const supabase = await signedIn();
   const kind = text(form, "kind") as AccountKind;
@@ -120,8 +161,13 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
   const rateRaw = debt ? text(form, "annual_rate").replace(",", ".") : "";
   const annual_rate = rateRaw ? Number(rateRaw) : null;
   if (annual_rate !== null && !(annual_rate >= 0 && annual_rate < 1000)) return { error: "La tasa no es válida." };
+  const credit = creditDetail(form, kind, due_day);
+  if ("error" in credit) return credit;
+  // Only what was filled in, so creating an account keeps working before migration 0009 runs.
+  const detail = Object.fromEntries(Object.entries(credit.detail).filter(([, v]) => v !== null && v !== false));
 
   const { error } = await supabase.from("accounts").insert({
+    ...detail,
     kind,
     name,
     institution: text(form, "institution") || null,
@@ -136,11 +182,7 @@ export async function saveAccount(_prev: FormState, form: FormData): Promise<For
   });
   if (error) {
     return {
-      error: /column .* does not exist|schema cache/i.test(error.message)
-        ? "Falta ejecutar la migración 0004 en Supabase."
-        : /accounts_kind_check/.test(error.message)
-          ? "Para registrar efectivo falta ejecutar la migración 0005 en Supabase."
-          : `No se pudo guardar: ${error.message}`,
+      error: /accounts_kind_check/.test(error.message) ? "Para registrar efectivo falta ejecutar la migración 0005 en Supabase." : accountWriteError(error.message),
     };
   }
   revalidatePath("/", "layout");
@@ -396,10 +438,13 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
   const rateRaw = debt ? text(form, "annual_rate").replace(",", ".") : "";
   const annual_rate = rateRaw ? Number(rateRaw) : null;
   if (annual_rate !== null && !(annual_rate >= 0 && annual_rate < 1000)) return { error: "La tasa no es válida." };
+  const credit = creditDetail(form, kind, due_day);
+  if ("error" in credit) return credit;
 
   const { error } = await supabase
     .from("accounts")
     .update({
+      ...credit.detail,
       name,
       institution: text(form, "institution") || null,
       color,
@@ -413,15 +458,71 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
       annual_rate,
     })
     .eq("id", id);
-  if (error) {
-    return {
-      error: /column .* does not exist|schema cache/i.test(error.message)
-        ? "Falta ejecutar la migración 0004 en Supabase."
-        : `No se pudo guardar: ${error.message}`,
-    };
-  }
+  if (error) return { error: accountWriteError(error.message) };
   revalidatePath("/", "layout");
   return { message: "Cambios guardados." };
+}
+
+/**
+ * Creates or edits a card purchase in instalments. "Cuotas ya pagadas" becomes the month of the
+ * first one. A new purchase can also be recorded as an expense on the card, so its balance includes it.
+ */
+export async function savePurchase(_prev: FormState, form: FormData): Promise<FormState> {
+  const supabase = await signedIn();
+  const id = text(form, "id");
+  const account_id = text(form, "account_id");
+  const { data: card } = await supabase.from("accounts").select("kind, due_day").eq("id", account_id).maybeSingle();
+  if (!card || card.kind !== "credit_card") return { error: "Esa tarjeta ya no existe." };
+
+  const description = text(form, "description").slice(0, 80);
+  if (!description) return { error: "Escribe qué compraste." };
+  const amount = parsePesos(text(form, "amount"));
+  if (!amount) return { error: "Escribe el valor de la compra." };
+  const installments = Number(text(form, "installments"));
+  if (!Number.isInteger(installments) || installments < 1 || installments > 120) return { error: "Las cuotas deben ser un número entre 1 y 120." };
+  const paid = Number(text(form, "installments_paid") || "0");
+  if (!Number.isInteger(paid) || paid < 0 || paid > installments) return { error: "Las cuotas pagadas deben estar entre 0 y el total de cuotas." };
+  const rateRaw = text(form, "annual_rate").replace(",", ".");
+  const annual_rate = rateRaw ? Number(rateRaw) : null;
+  if (annual_rate !== null && !(annual_rate >= 0 && annual_rate < 1000)) return { error: "La tasa no es válida." };
+  const rateType = text(form, "rate_type");
+  if (rateType && rateType !== "fixed" && rateType !== "variable") return { error: "El tipo de tasa no es válido." };
+
+  const row = {
+    account_id,
+    description,
+    amount,
+    installments,
+    first_due_month: firstMonthFor(paid, card.due_day, todayInBogota()),
+    monthly_payment: parsePesos(text(form, "monthly_payment")) || null,
+    annual_rate,
+    rate_type: rateType || null,
+    refinanced: form.get("refinanced") === "on",
+  };
+  const { error } = id ? await supabase.from("card_purchases").update(row).eq("id", id) : await supabase.from("card_purchases").insert(row);
+  if (error) return { error: accountWriteError(error.message) };
+
+  if (!id && form.get("record_expense") === "on") {
+    const { error: txError } = await supabase.from("transactions").insert({
+      account_id,
+      kind: "expense",
+      amount,
+      category: text(form, "category") || null,
+      description,
+      occurred_on: todayInBogota(),
+      source: "manual",
+    });
+    if (txError) return { error: `La compra quedó registrada, pero no se pudo sumar al saldo: ${txError.message}` };
+  }
+  revalidatePath("/", "layout");
+  return { message: id ? "Compra actualizada." : "Compra registrada." };
+}
+
+export async function deletePurchase(form: FormData) {
+  const supabase = await signedIn();
+  const { error } = await supabase.from("card_purchases").delete().eq("id", text(form, "id"));
+  if (error) throw new Error(`No se pudo eliminar la compra: ${error.message}`);
+  revalidatePath("/", "layout");
 }
 
 /**

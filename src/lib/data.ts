@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { todayInBogota, type Account, type Bill, type Skip, type Tx } from "./finance";
 import type { Budget, Income } from "./budget";
 import type { Goal, GoalDeposit } from "./goals";
+import type { CardPurchase } from "./installments";
 
 export interface InboxItem {
   id: string;
@@ -54,7 +55,7 @@ export async function loadData() {
     if (data.length < PAGE) break;
   }
 
-  const [bills, inbox, goals, deposits, budgets, skips, incomes] = await Promise.all([
+  const [bills, inbox, goals, deposits, budgets, skips, incomes, purchases] = await Promise.all([
     supabase.from("bills").select("*").order("due_day"),
     supabase.from("wallet_inbox").select("*").order("received_at", { ascending: false }),
     supabase.from("goals").select("*").order("target_date"),
@@ -62,7 +63,10 @@ export async function loadData() {
     supabase.from("budgets").select("*").order("category"),
     supabase.from("checklist_skips").select("*"),
     supabase.from("incomes").select("*").order("day"),
+    supabase.from("card_purchases").select("*").order("first_due_month"),
   ]);
+  // Card purchases in instalments arrived with migration 0009.
+  const purchasesReady = !purchases.error;
   // Budgets, skips and incomes arrived with migration 0007.
   const planMissing = Boolean(budgets.error || skips.error || incomes.error);
   // Goals arrived with migration 0006: until it runs, the rest of the app keeps working.
@@ -84,6 +88,8 @@ export async function loadData() {
     skips: planMissing ? [] : (skips.data as Skip[]),
     incomes: planMissing ? [] : (incomes.data as Income[]),
     planReady: !planMissing,
+    purchases: purchasesReady ? (purchases.data as CardPurchase[]) : [],
+    purchasesReady,
     today: todayInBogota(),
   };
 }

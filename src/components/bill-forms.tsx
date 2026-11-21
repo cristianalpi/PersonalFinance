@@ -9,9 +9,10 @@ import {
 } from "@/app/actions";
 import { useCloseModal } from "./modal";
 import { MoneyInput } from "./money-input";
+import { SubmitButton } from "./submit-button";
 
 export function BillForm() {
-  const [state, action, pending] = useActionState<FormState, FormData>(
+  const [state, action] = useActionState<FormState, FormData>(
     saveBill,
     {},
   );
@@ -58,9 +59,7 @@ export function BillForm() {
           {state.message}
         </p>
       )}
-      <button className="btn self-start" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar"}
-      </button>
+      <SubmitButton className="btn self-start">{"Guardar"}</SubmitButton>
     </form>
   );
 }
@@ -88,7 +87,7 @@ export function IncomeForm({
   accounts: { id: string; name: string }[];
   currentMonth: string;
 }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(
+  const [state, action] = useActionState<FormState, FormData>(
     saveIncome,
     {},
   );
@@ -204,9 +203,7 @@ export function IncomeForm({
           {state.message}
         </p>
       )}
-      <button className="btn self-start" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar"}
-      </button>
+      <SubmitButton className="btn self-start">{"Guardar"}</SubmitButton>
     </form>
   );
 }
@@ -220,7 +217,7 @@ export function BudgetForm({
   initial?: { category: string; amount: number };
 }) {
   const close = useCloseModal();
-  const [state, action, pending] = useActionState<FormState, FormData>(
+  const [state, action] = useActionState<FormState, FormData>(
     async (prev: FormState, form: FormData) => {
       const result = await saveBudget(prev, form);
       if (!result.error) close();
@@ -259,9 +256,7 @@ export function BudgetForm({
           {state.error}
         </p>
       )}
-      <button className="btn self-start" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar presupuesto"}
-      </button>
+      <SubmitButton className="btn self-start">{"Guardar presupuesto"}</SubmitButton>
     </form>
   );
 }
