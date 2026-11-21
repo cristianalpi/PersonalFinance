@@ -3,7 +3,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { passwordProblem } from "@/lib/auth-links";
 import { ADJUSTMENT, allowedTxKinds, balanceAt, isDebt, parsePesos, todayInBogota, type Account, type AccountKind, type Tx, type TxKind } from "@/lib/finance";
+import { requestOrigin } from "@/lib/request-origin";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export interface FormState {
@@ -38,13 +40,46 @@ export async function authenticate(_prev: FormState, form: FormData): Promise<Fo
 
   const supabase = await createClient();
   if (form.get("intent") === "signup") {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // The confirmation link comes back through /auth/confirm, which opens the session.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${await requestOrigin()}/auth/confirm?next=/` },
+    });
     if (error) return { error: error.message };
-    if (!data.session) return { message: "Cuenta creada. Confirma el correo que te llegó y luego entra." };
+    if (!data.session) return { message: "Cuenta creada. Abre el enlace que te enviamos al correo para entrar." };
   } else {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: "Correo o contraseña incorrectos." };
   }
+  redirect("/");
+}
+
+/** Sends the reset link. The answer is the same whether or not the email has an account. */
+export async function requestPasswordReset(_prev: FormState, form: FormData): Promise<FormState> {
+  if (!isSupabaseConfigured) return { error: "Falta configurar Supabase en .env.local." };
+  const email = text(form, "email");
+  if (!email) return { error: "Escribe tu correo." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${await requestOrigin()}/auth/confirm?next=/nueva-clave`,
+  });
+  if (error?.status === 429) return { error: "Ya pediste un enlace hace poco. Espera un momento y vuelve a intentarlo." };
+  return { message: "Si hay una cuenta con ese correo, te enviamos un enlace para elegir una contraseña nueva. Revisa también la carpeta de spam." };
+}
+
+/** Sets the password of the signed-in person (after the reset or invite link opened the session). */
+export async function updatePassword(_prev: FormState, form: FormData): Promise<FormState> {
+  const password = String(form.get("password") ?? "");
+  const problem = passwordProblem(password, String(form.get("repeat") ?? ""));
+  if (problem) return { error: problem };
+
+  const supabase = await signedIn();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error?.code === "same_password") return { error: "La contraseña nueva debe ser distinta a la anterior." };
+  if (error?.code === "weak_password") return { error: "Esa contraseña es muy débil. Usa una más larga o con más variedad." };
+  if (error) return { error: "No se pudo cambiar la contraseña. Pide un enlace nuevo e intenta otra vez." };
   redirect("/");
 }
 

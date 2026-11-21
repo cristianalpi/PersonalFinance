@@ -1,4 +1,5 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { requestOrigin } from "@/lib/request-origin";
 import { clearWalletName, signOut } from "@/app/actions";
 import { InstallCard } from "@/components/install-card";
 import { ScalePicker, ThemePicker } from "@/components/theme-toggle";
@@ -11,8 +12,7 @@ export default async function SettingsPage() {
   const { supabase, accounts, user } = await loadData();
   const { data: tokens } = await supabase.from("api_tokens").select("kind");
   const has = (kind: string) => Boolean(tokens?.some((t) => t.kind === kind));
-  const h = await headers();
-  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
+  const origin = await requestOrigin();
   const linked = accounts.filter((a) => a.wallet_card_name);
 
   return (

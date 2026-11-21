@@ -7,7 +7,10 @@ export async function proxy(request: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const isLogin = request.nextUrl.pathname === "/login";
+  const path = request.nextUrl.pathname;
+  const isLogin = path === "/login";
+  // Reachable without a session: asking for the reset link, and the email links that open one.
+  const isPublic = isLogin || path === "/recuperar" || path.startsWith("/auth/");
 
   const toLogin = () => {
     const target = request.nextUrl.clone();
@@ -17,7 +20,7 @@ export async function proxy(request: NextRequest) {
   };
 
   // Without Supabase credentials only the login page (which explains the setup) is reachable.
-  if (!url || !key) return isLogin ? NextResponse.next() : toLogin();
+  if (!url || !key) return isPublic ? NextResponse.next() : toLogin();
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, key, {
@@ -41,7 +44,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isLogin) return toLogin();
+  if (!user && !isPublic) return toLogin();
   if (user && isLogin) {
     const home = request.nextUrl.clone();
     home.pathname = "/";
