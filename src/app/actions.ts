@@ -66,6 +66,11 @@ export async function requestPasswordReset(_prev: FormState, form: FormData): Pr
     redirectTo: `${await requestOrigin()}/auth/confirm?next=/nueva-clave`,
   });
   if (error?.status === 429) return { error: "Ya pediste un enlace hace poco. Espera un momento y vuelve a intentarlo." };
+  // A 5xx means Supabase could not send the email (usually the SMTP settings), not that the account is missing.
+  if (error && (error.status ?? 500) >= 500) {
+    console.error("resetPasswordForEmail", error.status, error.code, error.message);
+    return { error: "No pudimos enviar el correo en este momento. Intenta de nuevo en unos minutos." };
+  }
   return { message: "Si hay una cuenta con ese correo, te enviamos un enlace para elegir una contraseña nueva. Revisa también la carpeta de spam." };
 }
 
