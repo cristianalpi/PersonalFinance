@@ -249,9 +249,9 @@ export default async function DebtsPage({
   if (views.length === 0) {
     return (
       <section className="card max-w-xl">
-        <h1 className="display text-3xl">Sin deudas registradas</h1>
+        <h1 className="display text-3xl">Sin créditos registrados</h1>
         <p className="mt-2 text-ink-2">
-          Cuando agregues una tarjeta de crédito o un crédito, aquí verás cuánto
+          Cuando agregues una tarjeta de crédito o un préstamo, aquí verás cuánto
           debes, cuánto cupo usas y cuánto te falta.
         </p>
         <div className="mt-4">
@@ -259,7 +259,7 @@ export default async function DebtsPage({
             today={today}
             autoOpen={addNow}
             defaultKind="credit_card"
-            label="Agregar una tarjeta o crédito"
+            label="Agregar una tarjeta o un préstamo"
           />
         </div>
       </section>
@@ -272,14 +272,14 @@ export default async function DebtsPage({
         today={today}
         autoOpen={addNow}
         defaultKind="credit_card"
-        label="Agregar deuda"
+        label="Agregar"
         buttonClass="btn-quiet h-10 gap-1.5 self-end px-4 text-sm -mb-3"
       />
       <section className="card" aria-labelledby="debts-total">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 id="debts-total" className="eyebrow">
-              Debes en total
+              Saldo en créditos
             </h1>
             <p className="display text-5xl leading-none sm:text-6xl">
               {formatCOP(total)}
@@ -307,7 +307,7 @@ export default async function DebtsPage({
             <div
               className="mt-5 flex h-4 gap-1 overflow-hidden rounded-full"
               role="img"
-              aria-label="Reparto de la deuda total por cuenta"
+              aria-label="Reparto del saldo total por cuenta"
             >
               {owing.map((v) => (
                 <div
@@ -373,14 +373,14 @@ export default async function DebtsPage({
         <section aria-labelledby="loans-title">
           <div className="flex items-baseline justify-between gap-3">
             <h2 id="loans-title" className="display text-2xl">
-              Créditos
+              Préstamos
             </h2>
             {loans.length > 1 && (
               <p className="text-sm text-ink-3">{loans.length} · desliza</p>
             )}
           </div>
           <div className="mt-3">
-            <Carousel label="Créditos">
+            <Carousel label="Préstamos">
               {loans.map((v, i) => (
                 <DebtModule
                   key={v.account.id}

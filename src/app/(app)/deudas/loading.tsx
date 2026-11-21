@@ -1,5 +1,5 @@
 import { CardsSkeleton } from "@/components/skeletons";
 
 export default function Loading() {
-  return <CardsSkeleton text="Revisando tus deudas…" />;
+  return <CardsSkeleton text="Revisando tus créditos…" />;
 }

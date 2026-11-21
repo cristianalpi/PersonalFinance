@@ -12,7 +12,7 @@ const KINDS: { kind: AccountKind; tone: string; label: string; hint: string }[] 
   { kind: "savings", tone: "tone-have", label: "Cuenta bancaria", hint: "Ahorros, nómina o débito" },
   { kind: "cash", tone: "tone-cash", label: "Efectivo", hint: "Billetera o alcancía" },
   { kind: "credit_card", tone: "tone-brand", label: "Tarjeta", hint: "Tarjeta de crédito" },
-  { kind: "loan", tone: "tone-owe", label: "Crédito", hint: "Préstamo con cuotas" },
+  { kind: "loan", tone: "tone-owe", label: "Préstamo", hint: "Libre inversión, vehículo, vivienda" },
 ];
 
 const PLACEHOLDER: Record<AccountKind, string> = {
@@ -101,7 +101,7 @@ export function AccountForm({ today, onSaved, initialKind = "savings" }: { today
               <MoneyInput name="monthly_payment" placeholder="$ 780.000" />
             </label>
             <label className="field">
-              Monto original del crédito (opcional)
+              Monto original del préstamo (opcional)
               <MoneyInput name="original_amount" placeholder="$ 24.000.000" />
             </label>
           </>

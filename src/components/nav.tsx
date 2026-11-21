@@ -23,7 +23,7 @@ export const TABS: Item[] = [
   { href: "/", label: "Inicio", icon: I.home },
   { href: "/movimientos", label: "Movimientos", icon: I.moves },
   { href: "/pagos", label: "Pagos", icon: I.bills },
-  { href: "/deudas", label: "Deudas", icon: I.debts },
+  { href: "/deudas", label: "Créditos", icon: I.debts },
   { href: "/metas", label: "Metas", icon: I.goals },
 ];
 

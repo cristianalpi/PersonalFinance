@@ -8,7 +8,7 @@ const TEXT: Record<AccountKind, string> = {
   savings: "Agregar cuenta bancaria",
   cash: "Agregar efectivo",
   credit_card: "Agregar tarjeta",
-  loan: "Agregar crédito",
+  loan: "Agregar préstamo",
 };
 
 /** The grey "+" at the end of each row: adds an account of that row's kind. */

@@ -374,7 +374,7 @@ export function AccountHero({
               {isLoan && (
                 <>
                   <label className="field">
-                    Monto original del crédito
+                    Monto original del préstamo
                     <MoneyInput
                       name="original_amount"
                       defaultValue={account.original_amount}

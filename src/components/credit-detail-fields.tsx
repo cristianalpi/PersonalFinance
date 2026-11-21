@@ -38,7 +38,7 @@ export function CreditDetailFields({
 
   return (
     <fieldset className="flex flex-col gap-4 rounded-2xl border border-line p-4">
-      <legend className="px-1 text-sm font-semibold text-ink">{isLoan ? "Detalle del crédito" : "Detalle de la tarjeta"}</legend>
+      <legend className="px-1 text-sm font-semibold text-ink">{isLoan ? "Detalle del préstamo" : "Detalle de la tarjeta"}</legend>
 
       {isLoan && (
         <div className="grid gap-4 sm:grid-cols-2">

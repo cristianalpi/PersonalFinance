@@ -63,7 +63,7 @@ export const KIND_LABEL: Record<AccountKind, string> = {
   savings: "Cuenta bancaria",
   cash: "Efectivo",
   credit_card: "Tarjeta de crédito",
-  loan: "Crédito",
+  loan: "Préstamo",
 };
 
 /** Category of the movements "Actualizar saldo" records. They reconcile; they are not payments the person made. */

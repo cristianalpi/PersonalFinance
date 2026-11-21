@@ -57,7 +57,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
     <>
       <div className="flex flex-col gap-3 pt-2">
         <Link href={debt ? "/deudas" : "/"} className="text-sm font-medium text-brand">
-          ‹ {debt ? "Deudas" : "Inicio"}
+          ‹ {debt ? "Créditos" : "Inicio"}
         </Link>
         <h1 className="sr-only">{account.name}</h1>
         <AccountHero account={account} balance={balance} debt={debt} today={today} movements={own.length} />

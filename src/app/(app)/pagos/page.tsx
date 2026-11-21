@@ -161,7 +161,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
       {items.length === 0 ? (
         <section className="card">
           <p className="font-medium">No hay pagos obligatorios {editable ? "este mes" : "en ese mes"}.</p>
-          <p className="mt-1 text-sm text-ink-2">Agrega tus pagos fijos aquí abajo. Las tarjetas y créditos con deuda aparecen solos.</p>
+          <p className="mt-1 text-sm text-ink-2">Agrega tus pagos fijos aquí abajo. Las tarjetas y préstamos con saldo aparecen solos.</p>
         </section>
       ) : (
         <section className="card" aria-label="Lista de pagos del mes">
@@ -225,7 +225,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           {(bills.length > 0 || visibleIncomes.length > 0) && (
             <section className="card">
               <h2 className="display text-2xl">Programados</h2>
-              <p className="text-sm text-ink-3">Se repiten cada mes. Las tarjetas y créditos se administran en Deudas.</p>
+              <p className="text-sm text-ink-3">Se repiten cada mes. Las tarjetas y préstamos se administran en Créditos.</p>
               <ul className="mt-2 divide-y divide-line">
                 {visibleIncomes.map((i) => (
                   <li key={i.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">

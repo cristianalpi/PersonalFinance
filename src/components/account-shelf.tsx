@@ -10,7 +10,7 @@ export const SHELF_TITLE: Record<AccountKind, string> = {
   savings: "Cuentas bancarias",
   cash: "Efectivo",
   credit_card: "Tarjetas de crédito",
-  loan: "Créditos",
+  loan: "Préstamos",
 };
 
 /** One kind of account as a sideways carousel of cards, ending in a «+» tile for another of the same kind. */
